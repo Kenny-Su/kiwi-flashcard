@@ -39,9 +39,12 @@ describe('KiwiMcpService', () => {
     closeCount = 0;
   });
 
-  it('parses generated cards from an array', () => {
-    const parsed = (service as any).parseJson('[{"question":"Q","answer":"A","concepts":["c"]}]');
-    assert.equal(parsed[0].question, 'Q');
+  it('generates cards without detecting concepts', async () => {
+    toolResult = { content: [{ type: 'text', text: '[{"question":"Q","answer":"A","concepts":["inaccurate"]}]' }] };
+
+    const cards = await service.generateCards('app-token', 'flashcards', 'source', 1);
+
+    assert.deepEqual(cards, [{ question: 'Q', answer: 'A' }]);
   });
 
   it('parses fenced JSON', () => {

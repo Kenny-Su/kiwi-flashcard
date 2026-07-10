@@ -7,7 +7,6 @@ type TransportFactory = (url: URL, token: string) => StreamableHTTPClientTranspo
 export interface GeneratedCard {
   question: string;
   answer: string;
-  concepts: string[];
 }
 
 export interface MultipleChoiceQuestion {
@@ -37,7 +36,6 @@ export class KiwiMcpService {
       .map((card: any) => ({
         question: String(card.question),
         answer: String(card.answer),
-        concepts: Array.isArray(card.concepts) ? card.concepts.map(String) : [],
       }));
   }
 

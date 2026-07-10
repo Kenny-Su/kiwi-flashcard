@@ -69,12 +69,12 @@ describe('FlashcardService with SQLite', () => {
   });
 
   it('stores cards generated through Kiwi MCP', async () => {
-    generatedCards = [{ question: 'Generated Q', answer: 'Generated A', concepts: ['context'] }];
+    generatedCards = [{ question: 'Generated Q', answer: 'Generated A' }];
     const cards = await service.generateCards(context, { sourceContent: 'Class context', count: 1 });
 
     assert.equal(cards.length, 1);
     assert.equal(cards[0].question, 'Generated Q');
-    assert.deepEqual(cards[0].concepts, ['context']);
+    assert.deepEqual(cards[0].concepts, []);
     assert.deepEqual(generateCalls[0], ['app-token', 'flashcards', 'Class context', 1]);
   });
 });

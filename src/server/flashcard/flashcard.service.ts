@@ -74,7 +74,7 @@ export class FlashcardService {
       ...dto,
       question: card.question,
       answer: card.answer,
-      concepts: card.concepts,
+      concepts: [],
       tags: [],
     })));
   }

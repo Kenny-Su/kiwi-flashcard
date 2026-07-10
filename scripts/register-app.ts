@@ -31,7 +31,7 @@ const payload = {
       promptId: 'generate-cards',
       name: 'Generate Flashcards',
       description: 'Creates concise flashcards from educational source text. Returns JSON only.',
-      systemPrompt: 'You create concise study flashcards from educational material. Return JSON only. The JSON must be an array or an object with a flashcards array. Each card must have question, answer, and concepts fields. Keep answers accurate and brief.',
+      systemPrompt: 'You create concise study flashcards from educational material. Return JSON only. The JSON must be an array or an object with a flashcards array. Each card must have question and answer fields. Keep answers accurate and brief.',
       maxTokens: 1600,
       temperature: 0.4,
     },

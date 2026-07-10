@@ -1,13 +1,11 @@
 import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { ApiClient } from '../api';
-import { detectConcepts } from '../conceptDetection';
 import { Icon, Modal, Notice, Spinner } from './ui';
 
 export default function FlashcardCreationModal({ open, onClose, api, onCreated }: { open: boolean; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [sourceContent, setSourceContent] = useState('');
-  const [concepts, setConcepts] = useState<string[]>([]);
   const [tagText, setTagText] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -18,7 +16,6 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     setQuestion('');
     setAnswer('');
     setSourceContent('');
-    setConcepts([]);
     setTags([]);
     setTagText('');
     setError(null);
@@ -36,7 +33,6 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
       await api.createCard({
         question: question.trim(),
         answer: answer.trim(),
-        concepts,
         tags,
         sourceContent: sourceContent.trim() || undefined,
       });
@@ -79,11 +75,6 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     addTag();
   };
 
-  const updateSource = (value: string) => {
-    setSourceContent(value);
-    setConcepts(detectConcepts(value));
-  };
-
   return (
     <Modal
       open={open}
@@ -117,27 +108,11 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
             <span className="field__label">Source content <small>optional for a manual card</small></span>
             <textarea
               value={sourceContent}
-              onChange={(event) => updateSource(event.currentTarget.value)}
+              onChange={(event) => setSourceContent(event.currentTarget.value)}
               placeholder="Paste a passage, concept summary, or class notes…"
               rows={8}
             />
           </label>
-
-          {concepts.length > 0 && (
-            <div>
-              <div className="field__label">Detected concepts</div>
-              <div className="chip-list">
-                {concepts.map((concept) => (
-                  <span className="chip chip--removable" key={concept}>
-                    {concept}
-                    <button className="chip__remove" type="button" onClick={() => setConcepts((previous) => previous.filter((item) => item !== concept))} aria-label={`Remove ${concept}`}>
-                      <Icon name="close" size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
 
           <button className="button button--secondary button--block" type="button" onClick={() => void generate()} disabled={busy || !sourceContent.trim()}>
             {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
