@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ApiClient } from '../api';
-import type { Card, Stats } from '../types';
+import type { Card, Deck, Stats } from '../types';
 import FlashcardCreationModal from './FlashcardCreationModal';
+import FlashcardEditModal from './FlashcardEditModal';
 import FlashcardViewer from './FlashcardViewer';
 import StudyMode from './StudyMode';
 import { Icon, Modal, Notice, Spinner } from './ui';
@@ -10,6 +11,7 @@ const emptyStats: Stats = { total: 0, reviewed: 0, averageReviews: 0, recentlyCr
 
 export default function FlashcardManager({ api, className }: { api: ApiClient; className?: string }) {
   const [cards, setCards] = useState<Card[]>([]);
+  const [decks, setDecks] = useState<Deck[]>([]);
   const [stats, setStats] = useState<Stats>(emptyStats);
   const [query, setQuery] = useState('');
   const [concepts, setConcepts] = useState<string[]>([]);
@@ -18,6 +20,7 @@ export default function FlashcardManager({ api, className }: { api: ApiClient; c
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [studyOpen, setStudyOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Card | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Card | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -25,9 +28,10 @@ export default function FlashcardManager({ api, className }: { api: ApiClient; c
     setLoading(true);
     setError(null);
     try {
-      const [nextCards, nextStats] = await Promise.all([api.listCards(), api.getStats()]);
+      const [nextCards, nextStats, nextDecks] = await Promise.all([api.listCards(), api.getStats(), api.listDecks()]);
       setCards(nextCards);
       setStats(nextStats);
+      setDecks(nextDecks);
       setConcepts([...new Set(nextCards.flatMap((card) => card.concepts))].sort());
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Failed to load flashcards.');
@@ -142,9 +146,14 @@ export default function FlashcardManager({ api, className }: { api: ApiClient; c
           <section className="card-grid" aria-label="Flashcards">
             {filtered.map((card) => (
               <div className="card-shell" key={card.id}>
-                <button className="icon-button icon-button--small icon-button--surface icon-button--danger card-shell__delete" type="button" onClick={() => setDeleteTarget(card)} aria-label={`Delete card: ${card.question}`} title="Delete card">
-                  <Icon name="trash" size={15} />
-                </button>
+                <div className="card-shell__actions">
+                  <button className="icon-button icon-button--small icon-button--surface" type="button" onClick={() => setEditTarget(card)} aria-label={`Edit card: ${card.question}`} title="Edit card">
+                    <Icon name="edit" size={15} />
+                  </button>
+                  <button className="icon-button icon-button--small icon-button--surface icon-button--danger" type="button" onClick={() => setDeleteTarget(card)} aria-label={`Delete card: ${card.question}`} title="Delete card">
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
                 <FlashcardViewer
                   card={card}
                   onReview={async (isCorrect) => {
@@ -163,6 +172,16 @@ export default function FlashcardManager({ api, className }: { api: ApiClient; c
           api={api}
           onCreated={async () => { setCreateOpen(false); await load(); }}
         />
+
+        {editTarget && (
+          <FlashcardEditModal
+            card={editTarget}
+            decks={decks}
+            api={api}
+            onClose={() => setEditTarget(null)}
+            onUpdated={async () => { setEditTarget(null); await load(); }}
+          />
+        )}
 
         {studyOpen && (
           <StudyMode

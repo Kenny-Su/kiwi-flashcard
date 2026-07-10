@@ -68,6 +68,15 @@ describe('FlashcardService with SQLite', () => {
     assert.deepEqual(stats, { total: 1, reviewed: 1, averageReviews: 1, recentlyCreated: 1 });
   });
 
+  it('can remove an existing card from its deck', async () => {
+    const deck = await service.createDeck(context, { name: 'Databases' });
+    const card = await service.createCard(context, { question: 'Q', answer: 'A', deckId: deck.id });
+
+    const updated = await service.updateCard(context, card.id, { question: 'Q', answer: 'A', deckId: null });
+
+    assert.equal(updated.deckId, null);
+  });
+
   it('stores cards generated through Kiwi MCP', async () => {
     generatedCards = [{ question: 'Generated Q', answer: 'Generated A' }];
     const cards = await service.generateCards(context, { sourceContent: 'Class context', count: 1 });

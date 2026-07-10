@@ -15,7 +15,7 @@ export interface CreateCardDto {
   confidence?: number;
 }
 
-export type UpdateCardDto = CreateCardDto;
+export type UpdateCardDto = Omit<CreateCardDto, 'deckId'> & { deckId?: string | null };
 
 export interface GenerateCardsDto {
   sourceContent: string;
@@ -71,6 +71,13 @@ function optionalString(input: Input, key: string): string | undefined {
   return value;
 }
 
+function optionalNullableString(input: Input, key: string): string | null | undefined {
+  const value = input[key];
+  if (value === undefined || value === null) return value;
+  if (typeof value !== 'string') throw new ValidationError(`${key} must be a string or null`);
+  return value;
+}
+
 function optionalInteger(input: Input, key: string, min: number, max = Number.MAX_SAFE_INTEGER): number | undefined {
   const value = input[key];
   if (value === undefined) return undefined;
@@ -107,7 +114,23 @@ export function parseCreateCard(value: unknown): CreateCardDto {
   };
 }
 
-export const parseUpdateCard = parseCreateCard;
+export function parseUpdateCard(value: unknown): UpdateCardDto {
+  const input = object(value);
+  return {
+    question: requiredString(input, 'question'),
+    answer: requiredString(input, 'answer'),
+    classId: optionalString(input, 'classId'),
+    deckId: optionalNullableString(input, 'deckId'),
+    concepts: optionalStringArray(input, 'concepts'),
+    tags: optionalStringArray(input, 'tags'),
+    pdfId: optionalString(input, 'pdfId'),
+    pageNumber: optionalInteger(input, 'pageNumber', 1),
+    materialType: optionalString(input, 'materialType'),
+    sourceContent: optionalString(input, 'sourceContent'),
+    difficultyRating: optionalInteger(input, 'difficultyRating', 1, 5),
+    confidence: optionalInteger(input, 'confidence', 1, 5),
+  };
+}
 
 export function parseGenerateCards(value: unknown): GenerateCardsDto {
   const input = object(value);

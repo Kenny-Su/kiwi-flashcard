@@ -466,11 +466,13 @@ button.chip:hover {
   min-width: 0;
 }
 
-.card-shell__delete {
+.card-shell__actions {
   position: absolute;
   top: 13px;
   right: 13px;
   z-index: 2;
+  display: flex;
+  gap: 6px;
 }
 
 .flashcard {
@@ -498,7 +500,7 @@ button.chip:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 13px 60px 10px 18px;
+  padding: 13px 96px 10px 18px;
   color: var(--muted);
   border-bottom: 1px solid var(--line);
 }
@@ -866,7 +868,8 @@ button.chip:hover {
 }
 
 .field textarea,
-.field input {
+.field input,
+.field select {
   width: 100%;
   color: var(--ink);
   background: var(--surface);
@@ -883,13 +886,15 @@ button.chip:hover {
   line-height: 1.55;
 }
 
-.field input {
+.field input,
+.field select {
   height: 42px;
   padding: 9px 12px;
 }
 
 .field textarea:focus,
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: rgba(36, 107, 89, 0.54);
   box-shadow: var(--focus);
 }
@@ -897,6 +902,10 @@ button.chip:hover {
 .field textarea::placeholder,
 .field input::placeholder {
   color: #96a19b;
+}
+
+.edit-card__tags {
+  margin-top: 12px;
 }
 
 .field-row {

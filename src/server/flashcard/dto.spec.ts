@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseCreateCard, parseGenerateCards, parseGenerateMcq, parseRecordReview } from './dto';
+import { parseCreateCard, parseGenerateCards, parseGenerateMcq, parseRecordReview, parseUpdateCard } from './dto';
 
 describe('request validation', () => {
   it('keeps valid card fields and strips unknown fields', () => {
@@ -19,6 +19,11 @@ describe('request validation', () => {
       () => parseCreateCard({ question: '', answer: 'Answer' }),
       /question must be a non-empty string/,
     );
+  });
+
+  it('allows an update to remove a card from its deck', () => {
+    const parsed = parseUpdateCard({ question: 'Question', answer: 'Answer', deckId: null });
+    assert.equal(parsed.deckId, null);
   });
 
   it('enforces generation limits', () => {

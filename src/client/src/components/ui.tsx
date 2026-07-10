@@ -9,6 +9,7 @@ export type IconName =
   | 'check'
   | 'check-circle'
   | 'close'
+  | 'edit'
   | 'info'
   | 'quiz'
   | 'reset'
@@ -29,6 +30,7 @@ const paths: Record<IconName, ReactNode> = {
   check: <><path d="m5 12 4 4L19 6" /></>,
   'check-circle': <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16.5 8" /></>,
   close: <><path d="M6 6l12 12M18 6 6 18" /></>,
+  edit: <><path d="M14.7 6.3 17.7 9.3" /><path d="M4 20l3.7-.8L19.2 7.7a2.1 2.1 0 0 0-3-3L4.8 16.2Z" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   quiz: <><path d="M8.5 9a3.5 3.5 0 1 1 5.7 2.7c-1.3 1-2.2 1.6-2.2 3.3M12 19h.01" /><circle cx="12" cy="12" r="9" /></>,
   reset: <><path d="M4 4v6h6" /><path d="M5.4 16.5A8 8 0 1 0 6 7l-2 3" /></>,
