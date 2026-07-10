@@ -1,0 +1,35 @@
+{
+  "name": "kiwi-flashcard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "server:dev": "PORT=8003 node --env-file=.env --watch --import tsx src/server/main.ts",
+    "client:dev": "vite --host 0.0.0.0 --port 8002",
+    "build": "npm run typecheck && tsc -p tsconfig.build.json && vite build",
+    "start": "node --env-file=.env dist/src/server/main.js",
+    "register": "node --env-file=.env --import tsx scripts/register-app.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test src/server/**/*.spec.ts",
+    "test:watch": "node --import tsx --test --watch src/server/**/*.spec.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "cors": "^2.8.5",
+    "express": "^4.22.2",
+    "jose": "^5.9.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.17",
+    "@types/node": "^24.13.3",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "@vitejs/plugin-react": "^4.5.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
