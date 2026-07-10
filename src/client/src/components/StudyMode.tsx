@@ -90,7 +90,7 @@ export default function StudyMode({ cards, api, onClose }: { cards: Card[]; api:
 
         <div className="study-stage">
           {mode === 'flashcard' ? (
-            <FlashcardViewer key={current.id} card={current} onReview={review} />
+            <FlashcardViewer key={current.id} card={current} />
           ) : (
             <MultipleChoiceViewer
               key={current.id}

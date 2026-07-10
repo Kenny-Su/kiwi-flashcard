@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { AppRequestContext } from '../auth/app-token.types';
 import { SqliteService } from '../database/sqlite.service';
 import { HttpError } from '../http-error';
-import type { CreateCardDto, CreateDeckDto, GenerateCardsDto, RecordReviewDto, StartSessionDto, UpdateCardDto } from './dto';
+import type { CreateCardDto, CreateCardsDto, CreateDeckDto, GenerateCardsDto, RecordReviewDto, StartSessionDto, UpdateCardDto } from './dto';
 import { KiwiMcpService } from './kiwi-mcp.service';
 
 type Row = Record<string, unknown>;
@@ -29,6 +29,13 @@ export class FlashcardService {
   async createCard(ctx: AppRequestContext, dto: CreateCardDto) {
     if (dto.deckId) this.assertDeckOwned(ctx, dto.deckId);
     return this.insertCard(ctx, dto);
+  }
+
+  async createCards(ctx: AppRequestContext, dto: CreateCardsDto) {
+    for (const card of dto.cards) {
+      if (card.deckId) this.assertDeckOwned(ctx, card.deckId);
+    }
+    return this.sqlite.transaction(() => dto.cards.map((card) => this.insertCard(ctx, card)));
   }
 
   async updateCard(ctx: AppRequestContext, id: string, dto: UpdateCardDto) {
@@ -69,14 +76,7 @@ export class FlashcardService {
 
   async generateCards(ctx: AppRequestContext, dto: GenerateCardsDto) {
     if (dto.deckId) this.assertDeckOwned(ctx, dto.deckId);
-    const generated = await this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, dto.sourceContent, dto.count || 3);
-    return this.sqlite.transaction(() => generated.map((card) => this.insertCard(ctx, {
-      ...dto,
-      question: card.question,
-      answer: card.answer,
-      concepts: [],
-      tags: [],
-    })));
+    return this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, dto.sourceContent, dto.count || 3);
   }
 
   async generateMcq(ctx: AppRequestContext, id: string, numChoices = 4) {
@@ -87,12 +87,10 @@ export class FlashcardService {
   async stats(ctx: AppRequestContext) {
     const cards = this.findCards(ctx);
     const reviewed = cards.filter((card) => card.reviewCount > 0).length;
-    const totalReviews = cards.reduce((sum, card) => sum + card.reviewCount, 0);
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return {
       total: cards.length,
       reviewed,
-      averageReviews: cards.length > 0 ? Math.round((totalReviews / cards.length) * 10) / 10 : 0,
       recentlyCreated: cards.filter((card) => Date.parse(card.createdAt) > sevenDaysAgo).length,
     };
   }

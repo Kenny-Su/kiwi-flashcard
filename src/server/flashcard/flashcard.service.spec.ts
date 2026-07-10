@@ -65,7 +65,7 @@ describe('FlashcardService with SQLite', () => {
     assert.equal(ended.reviews.length, 1);
     assert.equal(decks[0].id, deck.id);
     assert.equal(decks[0].cards[0].id, card.id);
-    assert.deepEqual(stats, { total: 1, reviewed: 1, averageReviews: 1, recentlyCreated: 1 });
+    assert.deepEqual(stats, { total: 1, reviewed: 1, recentlyCreated: 1 });
   });
 
   it('can remove an existing card from its deck', async () => {
@@ -77,13 +77,23 @@ describe('FlashcardService with SQLite', () => {
     assert.equal(updated.deckId, null);
   });
 
-  it('stores cards generated through Kiwi MCP', async () => {
+  it('previews generated cards without storing them', async () => {
     generatedCards = [{ question: 'Generated Q', answer: 'Generated A' }];
     const cards = await service.generateCards(context, { sourceContent: 'Class context', count: 1 });
 
-    assert.equal(cards.length, 1);
-    assert.equal(cards[0].question, 'Generated Q');
-    assert.deepEqual(cards[0].concepts, []);
+    assert.deepEqual(cards, generatedCards);
+    assert.deepEqual(await service.listCards(context), []);
     assert.deepEqual(generateCalls[0], ['app-token', 'flashcards', 'Class context', 1]);
+  });
+
+  it('stores an accepted batch of generated card drafts', async () => {
+    const cards = await service.createCards(context, { cards: [
+      { question: 'Edited Q1', answer: 'Edited A1', sourceContent: 'Class context' },
+      { question: 'Edited Q2', answer: 'Edited A2', sourceContent: 'Class context' },
+    ] });
+
+    assert.equal(cards.length, 2);
+    assert.equal((await service.listCards(context)).length, 2);
+    assert.equal(cards[0].sourceContent, 'Class context');
   });
 });

@@ -7,7 +7,7 @@ import FlashcardViewer from './FlashcardViewer';
 import StudyMode from './StudyMode';
 import { Icon, Modal, Notice, Spinner } from './ui';
 
-const emptyStats: Stats = { total: 0, reviewed: 0, averageReviews: 0, recentlyCreated: 0 };
+const emptyStats: Stats = { total: 0, reviewed: 0, recentlyCreated: 0 };
 
 export default function FlashcardManager({ api, className }: { api: ApiClient; className?: string }) {
   const [cards, setCards] = useState<Card[]>([]);
@@ -104,7 +104,6 @@ export default function FlashcardManager({ api, className }: { api: ApiClient; c
         <section className="stats-grid" aria-label="Flashcard statistics">
           <Stat label="Total cards" value={stats.total} />
           <Stat label="Reviewed" value={stats.reviewed} />
-          <Stat label="Average reviews" value={stats.averageReviews.toFixed(1)} />
           <Stat label="Created this week" value={stats.recentlyCreated} />
         </section>
 
@@ -154,13 +153,7 @@ export default function FlashcardManager({ api, className }: { api: ApiClient; c
                     <Icon name="trash" size={15} />
                   </button>
                 </div>
-                <FlashcardViewer
-                  card={card}
-                  onReview={async (isCorrect) => {
-                    await api.recordReview({ cardId: card.id, isCorrect });
-                    await load();
-                  }}
-                />
+                <FlashcardViewer card={card} />
               </div>
             ))}
           </section>

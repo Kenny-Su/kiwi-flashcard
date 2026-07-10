@@ -17,8 +17,6 @@ export type IconName =
   | 'shuffle'
   | 'sparkles'
   | 'study'
-  | 'thumb-down'
-  | 'thumb-up'
   | 'trash';
 
 const paths: Record<IconName, ReactNode> = {
@@ -38,8 +36,6 @@ const paths: Record<IconName, ReactNode> = {
   shuffle: <><path d="M16 3h5v5M4 20l5.5-5.5M21 16v5h-5M4 4l16.5 16.5M14.5 9.5 20.5 3.5" /></>,
   sparkles: <><path d="m12 3 1.15 3.35L16.5 7.5l-3.35 1.15L12 12l-1.15-3.35L7.5 7.5l3.35-1.15L12 3ZM18.5 13l.75 2.25 2.25.75-2.25.75L18.5 19l-.75-2.25L15.5 16l2.25-.75L18.5 13ZM5.5 12l.75 2.25L8.5 15l-2.25.75L5.5 18l-.75-2.25L2.5 15l2.25-.75L5.5 12Z" /></>,
   study: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5v-16ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z" /></>,
-  'thumb-down': <><path d="M7 3v11M3 4h4v9H3zM7 13l4.2 7a2 2 0 0 0 3.7-1v-4h3.3a2 2 0 0 0 1.9-2.6l-2-7A2 2 0 0 0 16.2 4H7" /></>,
-  'thumb-up': <><path d="M7 21V10M3 11h4v9H3zM7 11l4.2-7a2 2 0 0 1 3.7 1v4h3.3a2 2 0 0 1 1.9 2.6l-2 7a2 2 0 0 1-1.9 1.4H7" /></>,
   trash: <><path d="M4 7h16M9 7V4h6v3M6.5 7l.8 14h9.4l.8-14M10 11v6M14 11v6" /></>,
 };
 

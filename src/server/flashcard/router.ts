@@ -4,6 +4,7 @@ import type { AppRequestContext } from '../auth/app-token.types';
 import { getAppContext } from '../auth/request-context';
 import {
   parseCreateCard,
+  parseCreateCards,
   parseCreateDeck,
   parseGenerateCards,
   parseGenerateMcq,
@@ -46,6 +47,10 @@ export function createFlashcardRouter(
     response.status(201).json(await flashcards.createCard(getAppContext(request), parseCreateCard(request.body)));
   }));
 
+  router.post('/cards/batch', asyncHandler(async (request, response) => {
+    response.status(201).json(await flashcards.createCards(getAppContext(request), parseCreateCards(request.body)));
+  }));
+
   router.patch('/cards/:id', asyncHandler(async (request, response) => {
     response.json(await flashcards.updateCard(getAppContext(request), request.params.id, parseUpdateCard(request.body)));
   }));
@@ -55,7 +60,7 @@ export function createFlashcardRouter(
   }));
 
   router.post('/cards/generate', asyncHandler(async (request, response) => {
-    response.status(201).json(await flashcards.generateCards(getAppContext(request), parseGenerateCards(request.body)));
+    response.json(await flashcards.generateCards(getAppContext(request), parseGenerateCards(request.body)));
   }));
 
   router.post('/cards/:id/mcq', asyncHandler(async (request, response) => {

@@ -17,6 +17,10 @@ export interface CreateCardDto {
 
 export type UpdateCardDto = Omit<CreateCardDto, 'deckId'> & { deckId?: string | null };
 
+export interface CreateCardsDto {
+  cards: CreateCardDto[];
+}
+
 export interface GenerateCardsDto {
   sourceContent: string;
   count?: number;
@@ -112,6 +116,14 @@ export function parseCreateCard(value: unknown): CreateCardDto {
     difficultyRating: optionalInteger(input, 'difficultyRating', 1, 5),
     confidence: optionalInteger(input, 'confidence', 1, 5),
   };
+}
+
+export function parseCreateCards(value: unknown): CreateCardsDto {
+  const input = object(value);
+  if (!Array.isArray(input.cards) || input.cards.length === 0 || input.cards.length > 10) {
+    throw new ValidationError('cards must be an array containing between 1 and 10 cards');
+  }
+  return { cards: input.cards.map(parseCreateCard) };
 }
 
 export function parseUpdateCard(value: unknown): UpdateCardDto {

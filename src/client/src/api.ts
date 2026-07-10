@@ -1,12 +1,24 @@
 import type { Card, Deck, MultipleChoiceQuestion, Stats } from './types';
 
+export interface GeneratedCardDraft {
+  question: string;
+  answer: string;
+}
+
+export type AcceptedCardDraft = GeneratedCardDraft & {
+  sourceContent?: string;
+  deckId?: string;
+  tags?: string[];
+};
+
 export interface ApiClient {
   listCards(): Promise<Card[]>;
   searchCards(q: string): Promise<Card[]>;
   createCard(input: Partial<Card> & { question: string; answer: string }): Promise<Card>;
+  createCards(input: AcceptedCardDraft[]): Promise<Card[]>;
   updateCard(id: string, input: Partial<Card>): Promise<Card>;
   deleteCard(id: string): Promise<void>;
-  generateCards(input: { sourceContent: string; count: number; deckId?: string }): Promise<Card[]>;
+  generateCards(input: { sourceContent: string; count: number; deckId?: string }): Promise<GeneratedCardDraft[]>;
   generateMcq(id: string, numChoices?: number): Promise<MultipleChoiceQuestion>;
   recordReview(input: { cardId: string; isCorrect: boolean; sessionId?: string }): Promise<void>;
   getStats(): Promise<Stats>;
@@ -39,6 +51,10 @@ export function createApiClient(token: string, classId: string): ApiClient {
     listCards: () => request(`/api/cards?${classQuery}`),
     searchCards: (q) => request(`/api/cards/search?${classQuery}&q=${encodeURIComponent(q)}`),
     createCard: (input) => request('/api/cards', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
+    createCards: (cards) => request('/api/cards/batch', {
+      method: 'POST',
+      body: JSON.stringify({ cards: cards.map((card) => ({ ...card, classId })) }),
+    }),
     updateCard: (id, input) => request(`/api/cards/${id}`, { method: 'PATCH', body: JSON.stringify({ ...input, classId }) }),
     deleteCard: async (id) => { await request(`/api/cards/${id}`, { method: 'DELETE' }); },
     generateCards: (input) => request('/api/cards/generate', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),

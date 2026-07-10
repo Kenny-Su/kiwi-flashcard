@@ -1,30 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { Card as Flashcard } from '../types';
-import { Icon, Notice, Spinner } from './ui';
 
-export default function FlashcardViewer({ card, onReview }: { card: Flashcard; onReview?: (isCorrect: boolean) => Promise<void> | void }) {
+export default function FlashcardViewer({ card }: { card: Flashcard }) {
   const [showAnswer, setShowAnswer] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
-  const [reviewError, setReviewError] = useState<string | null>(null);
 
   useEffect(() => {
     setShowAnswer(false);
-    setReviewing(false);
-    setReviewError(null);
   }, [card.id]);
-
-  const review = async (isCorrect: boolean) => {
-    if (reviewing) return;
-    setReviewing(true);
-    setReviewError(null);
-    try {
-      await onReview?.(isCorrect);
-    } catch (error) {
-      setReviewError(error instanceof Error ? error.message : 'Could not save this review.');
-    } finally {
-      setReviewing(false);
-    }
-  };
 
   return (
     <article className="flashcard">
@@ -49,21 +31,6 @@ export default function FlashcardViewer({ card, onReview }: { card: Flashcard; o
         <div className="flashcard__concepts" aria-label="Concepts">
           {card.concepts.slice(0, 4).map((concept) => <span className="flashcard__concept" key={concept}>{concept}</span>)}
         </div>
-
-        {reviewError && <Notice tone="error">{reviewError}</Notice>}
-
-        {showAnswer && (
-          <div className="review-actions">
-            <button className="button button--secondary" type="button" disabled={reviewing} onClick={() => void review(false)}>
-              {reviewing ? <Spinner label="Saving review" size="small" /> : <Icon name="thumb-down" />}
-              Again
-            </button>
-            <button className="button button--primary" type="button" disabled={reviewing} onClick={() => void review(true)}>
-              {reviewing ? <Spinner label="Saving review" size="small" /> : <Icon name="thumb-up" />}
-              Got it
-            </button>
-          </div>
-        )}
       </footer>
     </article>
   );

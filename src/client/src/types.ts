@@ -39,7 +39,6 @@ export interface Deck {
 export interface Stats {
   total: number;
   reviewed: number;
-  averageReviews: number;
   recentlyCreated: number;
 }
 

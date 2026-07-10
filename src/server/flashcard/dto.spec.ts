@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseCreateCard, parseGenerateCards, parseGenerateMcq, parseRecordReview, parseUpdateCard } from './dto';
+import { parseCreateCard, parseCreateCards, parseGenerateCards, parseGenerateMcq, parseRecordReview, parseUpdateCard } from './dto';
 
 describe('request validation', () => {
   it('keeps valid card fields and strips unknown fields', () => {
@@ -24,6 +24,16 @@ describe('request validation', () => {
   it('allows an update to remove a card from its deck', () => {
     const parsed = parseUpdateCard({ question: 'Question', answer: 'Answer', deckId: null });
     assert.equal(parsed.deckId, null);
+  });
+
+  it('validates batches of reviewed cards', () => {
+    const parsed = parseCreateCards({ cards: [{ question: 'Q', answer: 'A' }] });
+    assert.deepEqual(parsed.cards, [{
+      question: 'Q', answer: 'A', classId: undefined, deckId: undefined, concepts: undefined,
+      tags: undefined, pdfId: undefined, pageNumber: undefined, materialType: undefined,
+      sourceContent: undefined, difficultyRating: undefined, confidence: undefined,
+    }]);
+    assert.throws(() => parseCreateCards({ cards: [] }), /between 1 and 10 cards/);
   });
 
   it('enforces generation limits', () => {

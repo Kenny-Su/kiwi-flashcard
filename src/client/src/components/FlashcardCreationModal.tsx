@@ -1,6 +1,8 @@
 import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
-import type { ApiClient } from '../api';
+import type { ApiClient, GeneratedCardDraft } from '../api';
 import { Icon, Modal, Notice, Spinner } from './ui';
+
+type PreviewCard = GeneratedCardDraft & { id: string };
 
 export default function FlashcardCreationModal({ open, onClose, api, onCreated }: { open: boolean; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
   const [question, setQuestion] = useState('');
@@ -8,6 +10,8 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
   const [sourceContent, setSourceContent] = useState('');
   const [tagText, setTagText] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [drafts, setDrafts] = useState<PreviewCard[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
@@ -18,7 +22,15 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     setSourceContent('');
     setTags([]);
     setTagText('');
+    setDrafts([]);
+    setPreviewOpen(false);
     setError(null);
+  };
+
+  const close = () => {
+    if (busy) return;
+    reset();
+    onClose();
   };
 
   const create = async (event?: FormEvent) => {
@@ -53,14 +65,49 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     setBusy(true);
     setError(null);
     try {
-      await api.generateCards({ sourceContent: sourceContent.trim(), count: 3 });
-      reset();
-      await onCreated();
+      const generated = await api.generateCards({ sourceContent: sourceContent.trim(), count: 3 });
+      if (generated.length === 0) {
+        setError('No usable flashcards were generated. Try adding more source detail.');
+        return;
+      }
+      setDrafts(generated.map((card, index) => ({ ...card, id: `generated-${Date.now()}-${index}` })));
+      setPreviewOpen(true);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Failed to generate cards.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const acceptDrafts = async () => {
+    if (drafts.length === 0) {
+      setError('Keep at least one card before saving.');
+      return;
+    }
+    if (drafts.some((card) => !card.question.trim() || !card.answer.trim())) {
+      setError('Every accepted card needs both a question and an answer.');
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      await api.createCards(drafts.map((card) => ({
+        question: card.question.trim(),
+        answer: card.answer.trim(),
+        sourceContent: sourceContent.trim(),
+      })));
+      reset();
+      await onCreated();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to save generated cards.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateDraft = (id: string, field: 'question' | 'answer', value: string) => {
+    setDrafts((previous) => previous.map((card) => card.id === id ? { ...card, [field]: value } : card));
   };
 
   const addTag = () => {
@@ -78,23 +125,62 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title="Create a flashcard"
-      eyebrow="Build your deck"
+      onClose={close}
+      title={previewOpen ? 'Review generated cards' : 'Create a flashcard'}
+      eyebrow={previewOpen ? 'Edit, reject, then save' : 'Build your deck'}
       size="large"
       footer={
-        <>
-          <button className="button button--ghost" type="button" onClick={onClose}>Cancel</button>
-          <button className="button button--primary" type="submit" form={formId} disabled={busy}>
-            {busy ? <Spinner label="Creating card" size="small" /> : <Icon name="add" />}
-            Create card
-          </button>
-        </>
+        previewOpen ? (
+          <>
+            <button className="button button--ghost" type="button" disabled={busy} onClick={() => { setPreviewOpen(false); setError(null); }}>Back to source</button>
+            <button className="button button--primary" type="button" disabled={busy || drafts.length === 0} onClick={() => void acceptDrafts()}>
+              {busy ? <Spinner label="Saving cards" size="small" /> : <Icon name="check" />}
+              Add {drafts.length} {drafts.length === 1 ? 'card' : 'cards'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="button button--ghost" type="button" onClick={close}>Cancel</button>
+            <button className="button button--primary" type="submit" form={formId} disabled={busy}>
+              {busy ? <Spinner label="Creating card" size="small" /> : <Icon name="add" />}
+              Create card
+            </button>
+          </>
+        )
       }
     >
       {error && <Notice tone="error" onClose={() => setError(null)}>{error}</Notice>}
 
-      <div className="creation-grid" aria-busy={busy}>
+      {previewOpen ? (
+        <section className="generation-preview" aria-busy={busy}>
+          <p className="generation-preview__intro">Nothing is saved yet. Refine the drafts below and remove anything you do not want in your library.</p>
+
+          {drafts.length === 0 ? (
+            <div className="generation-preview__empty">All generated cards were removed. Return to the source and generate another set.</div>
+          ) : (
+            <div className="generation-preview__list">
+              {drafts.map((card, index) => (
+                <article className="generation-preview__card" key={card.id}>
+                  <header className="generation-preview__header">
+                    <strong>Draft {index + 1}</strong>
+                    <button className="icon-button icon-button--small icon-button--danger" type="button" disabled={busy} onClick={() => setDrafts((previous) => previous.filter((item) => item.id !== card.id))} aria-label={`Reject draft ${index + 1}`} title="Reject card">
+                      <Icon name="trash" size={15} />
+                    </button>
+                  </header>
+                  <label className="field">
+                    <span className="field__label">Question</span>
+                    <textarea value={card.question} onChange={(event) => updateDraft(card.id, 'question', event.currentTarget.value)} rows={3} />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Answer</span>
+                    <textarea value={card.answer} onChange={(event) => updateDraft(card.id, 'answer', event.currentTarget.value)} rows={4} />
+                  </label>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : <div className="creation-grid" aria-busy={busy}>
         <section className="creation-pane creation-pane--ai">
           <div className="section-heading">
             <span className="section-heading__icon"><Icon name="sparkles" /></span>
@@ -163,7 +249,7 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
             </div>
           )}
         </form>
-      </div>
+      </div>}
     </Modal>
   );
 }

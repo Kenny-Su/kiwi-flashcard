@@ -572,13 +572,6 @@ button.chip:hover {
   font-weight: 650;
 }
 
-.review-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 9px;
-  margin-top: 12px;
-}
-
 .loading-state,
 .empty-state,
 .bridge-state {
@@ -817,6 +810,54 @@ button.chip:hover {
   background: linear-gradient(155deg, var(--accent-soft), #f8fbef 68%);
   border: 1px solid rgba(127, 158, 49, 0.13);
   border-radius: var(--radius-lg);
+}
+
+.generation-preview {
+  display: grid;
+  gap: 16px;
+}
+
+.generation-preview__intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.generation-preview__list {
+  display: grid;
+  gap: 14px;
+}
+
+.generation-preview__card {
+  min-width: 0;
+  padding: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.generation-preview__card .field:last-child {
+  margin-bottom: 0;
+}
+
+.generation-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.generation-preview__empty {
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+  background: var(--surface-soft);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
 }
 
 .section-heading {
@@ -1157,7 +1198,7 @@ button.chip:hover {
   }
 
   .stats-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
   }
 
@@ -1179,6 +1220,10 @@ button.chip:hover {
   .creation-grid {
     grid-template-columns: minmax(280px, 0.82fr) minmax(340px, 1.18fr);
     align-items: start;
+  }
+
+  .generation-preview__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
