@@ -16,6 +16,12 @@ export interface MultipleChoiceQuestion {
   explanation?: string;
 }
 
+export interface SuggestedCardLink {
+  sourceCardId: string;
+  targetCardId: string;
+  explanation: string;
+}
+
 export class KiwiMcpService {
   constructor(
     private readonly baseUrl = process.env.KIWI_API_URL || 'http://localhost:3000',
@@ -58,6 +64,33 @@ export class KiwiMcpService {
       correctIndex: mcq.correctIndex,
       explanation: mcq.explanation ? String(mcq.explanation) : undefined,
     };
+  }
+
+  async suggestCardLinks(token: string, appSlug: string, cards: Array<{ id: string; question: string; answer: string }>): Promise<SuggestedCardLink[]> {
+    const userMessage = `Suggest up to 12 meaningful connections between these flashcards. For each pair, write one concise sentence that explicitly names both concepts and explains their specific connection using only the card content. Never use a generic phrase such as "is related to". Return JSON only as {"links":[{"sourceCardId":"...","targetCardId":"...","explanation":"..."}]}.\n\n${JSON.stringify({ cards })}`;
+    const text = await this.callKiwiAppChat(token, appSlug, 'suggest-card-links', userMessage);
+    const parsed = this.parseJson(text);
+    const links = Array.isArray(parsed) ? parsed : Array.isArray(parsed.links) ? parsed.links : [];
+    return links
+      .filter((link: any) =>
+        link
+        && typeof link.sourceCardId === 'string'
+        && typeof link.targetCardId === 'string'
+        && typeof link.explanation === 'string'
+        && link.explanation.trim())
+      .slice(0, 12)
+      .map((link: any) => ({
+        sourceCardId: link.sourceCardId,
+        targetCardId: link.targetCardId,
+        explanation: link.explanation.trim(),
+      }));
+  }
+
+  async explainCardLink(token: string, appSlug: string, source: { question: string; answer: string }, target: { question: string; answer: string }): Promise<string> {
+    const userMessage = `Write one concise sentence that explicitly names both flashcard concepts and explains their specific connection. Use only the information in the two cards. Do not say they are merely "related". Return JSON only as {"explanation":"..."}.\n\n${JSON.stringify({ source, target })}`;
+    const parsed = this.parseJson(await this.callKiwiAppChat(token, appSlug, 'explain-card-link', userMessage));
+    if (typeof parsed.explanation !== 'string' || !parsed.explanation.trim()) throw new Error('Invalid relationship explanation from Kiwi prompt');
+    return parsed.explanation.trim();
   }
 
   private async callKiwiAppChat(token: string, appSlug: string, promptId: string, userMessage: string): Promise<string> {

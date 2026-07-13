@@ -1,4 +1,4 @@
-import type { Card, Deck, MultipleChoiceQuestion, Stats } from './types';
+import type { Card, CardLink, Deck, MultipleChoiceQuestion, Stats, SuggestedCardLink } from './types';
 
 export interface GeneratedCardDraft {
   question: string;
@@ -8,6 +8,7 @@ export interface GeneratedCardDraft {
 export type AcceptedCardDraft = GeneratedCardDraft & {
   sourceContent?: string;
   deckId?: string;
+  deckIds?: string[];
   tags?: string[];
 };
 
@@ -20,10 +21,21 @@ export interface ApiClient {
   deleteCard(id: string): Promise<void>;
   generateCards(input: { sourceContent: string; count: number; deckId?: string }): Promise<GeneratedCardDraft[]>;
   generateMcq(id: string, numChoices?: number): Promise<MultipleChoiceQuestion>;
+  listCardLinks(deckId: string): Promise<CardLink[]>;
+  createCardLinks(links: Array<{ sourceCardId: string; targetCardId: string; explanation: string }>): Promise<CardLink[]>;
+  explainCardLink(sourceCardId: string, targetCardId: string): Promise<{ explanation: string }>;
+  updateCardLink(id: string, explanation: string): Promise<CardLink>;
+  deleteCardLink(id: string): Promise<void>;
+  suggestCardLinks(deckId: string): Promise<SuggestedCardLink[]>;
   recordReview(input: { cardId: string; isCorrect: boolean; sessionId?: string }): Promise<void>;
   getStats(): Promise<Stats>;
   listDecks(): Promise<Deck[]>;
   createDeck(input: { name: string; description?: string }): Promise<Deck>;
+  updateDeck(id: string, input: { name?: string; description?: string | null }): Promise<Deck>;
+  deleteDeck(id: string): Promise<void>;
+  addCardToDeck(deckId: string, cardId: string): Promise<Card>;
+  removeCardFromDeck(deckId: string, cardId: string): Promise<Card>;
+  reorderDeckCards(deckId: string, cardIds: string[]): Promise<Card[]>;
   startSession(deckId?: string): Promise<{ id: string }>;
   endSession(sessionId: string): Promise<void>;
 }
@@ -59,10 +71,21 @@ export function createApiClient(token: string, classId: string): ApiClient {
     deleteCard: async (id) => { await request(`/api/cards/${id}`, { method: 'DELETE' }); },
     generateCards: (input) => request('/api/cards/generate', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
     generateMcq: (id, numChoices = 4) => request(`/api/cards/${id}/mcq`, { method: 'POST', body: JSON.stringify({ numChoices }) }),
+    listCardLinks: (deckId) => request(`/api/card-links?deckId=${encodeURIComponent(deckId)}&${classQuery}`),
+    createCardLinks: (links) => request('/api/card-links', { method: 'POST', body: JSON.stringify({ links }) }),
+    explainCardLink: (sourceCardId, targetCardId) => request('/api/card-links/explain', { method: 'POST', body: JSON.stringify({ sourceCardId, targetCardId }) }),
+    updateCardLink: (id, explanation) => request(`/api/card-links/${id}`, { method: 'PATCH', body: JSON.stringify({ explanation }) }),
+    deleteCardLink: async (id) => { await request(`/api/card-links/${id}`, { method: 'DELETE' }); },
+    suggestCardLinks: (deckId) => request('/api/card-links/suggest', { method: 'POST', body: JSON.stringify({ deckId }) }),
     recordReview: (input) => request('/api/reviews', { method: 'POST', body: JSON.stringify(input) }),
     getStats: () => request(`/api/stats?${classQuery}`),
     listDecks: () => request(`/api/decks?${classQuery}`),
     createDeck: (input) => request('/api/decks', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
+    updateDeck: (id, input) => request(`/api/decks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+    deleteDeck: async (id) => { await request(`/api/decks/${id}`, { method: 'DELETE' }); },
+    addCardToDeck: (deckId, cardId) => request(`/api/decks/${deckId}/cards/${cardId}`, { method: 'POST' }),
+    removeCardFromDeck: (deckId, cardId) => request(`/api/decks/${deckId}/cards/${cardId}`, { method: 'DELETE' }),
+    reorderDeckCards: (deckId, cardIds) => request(`/api/decks/${deckId}/cards/order`, { method: 'PUT', body: JSON.stringify({ cardIds }) }),
     startSession: (deckId) => request('/api/sessions', { method: 'POST', body: JSON.stringify({ deckId }) }),
     endSession: async (sessionId) => { await request(`/api/sessions/${sessionId}/end`, { method: 'POST' }); },
   };

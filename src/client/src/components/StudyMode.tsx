@@ -5,13 +5,15 @@ import FlashcardViewer from './FlashcardViewer';
 import MultipleChoiceViewer from './MultipleChoiceViewer';
 import { Icon, Modal, Notice } from './ui';
 
-export default function StudyMode({ cards, api, onClose }: { cards: Card[]; api: ApiClient; onClose: () => Promise<void> | void }) {
+export default function StudyMode({ cards, deckId, api, onClose }: { cards: Card[]; deckId?: string; api: ApiClient; onClose: () => Promise<void> | void }) {
   const [studyCards, setStudyCards] = useState(cards);
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<'flashcard' | 'mcq'>('flashcard');
   const [correct, setCorrect] = useState(0);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string>();
+  const sessionPromise = useRef<Promise<{ id: string }> | null>(null);
   const advanceTimer = useRef<number | null>(null);
   const current = studyCards[index];
   const progress = useMemo(() => studyCards.length ? ((index + 1) / studyCards.length) * 100 : 0, [index, studyCards.length]);
@@ -21,7 +23,21 @@ export default function StudyMode({ cards, api, onClose }: { cards: Card[]; api:
     advanceTimer.current = null;
   };
 
-  useEffect(() => () => clearAdvance(), []);
+  useEffect(() => {
+    let active = true;
+    let startedId: string | undefined;
+    sessionPromise.current = api.startSession(deckId);
+    void sessionPromise.current.then((session) => {
+      startedId = session.id;
+      if (active) setSessionId(session.id);
+      else void api.endSession(session.id);
+    }).catch((requestError) => { if (active) setError(requestError instanceof Error ? requestError.message : 'Could not start study session.'); });
+    return () => {
+      active = false;
+      clearAdvance();
+      if (startedId) void api.endSession(startedId);
+    };
+  }, [api, deckId]);
 
   const goTo = (nextIndex: number) => {
     clearAdvance();
@@ -31,7 +47,8 @@ export default function StudyMode({ cards, api, onClose }: { cards: Card[]; api:
 
   const review = async (isCorrect: boolean) => {
     setError(null);
-    await api.recordReview({ cardId: current.id, isCorrect });
+    const activeSessionId = sessionId || (await sessionPromise.current)?.id;
+    await api.recordReview({ cardId: current.id, isCorrect, sessionId: activeSessionId });
     setCorrect((previous) => previous + (isCorrect ? 1 : 0));
     setTotal((previous) => previous + 1);
     clearAdvance();

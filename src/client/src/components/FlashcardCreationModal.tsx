@@ -1,14 +1,16 @@
-import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { ApiClient, GeneratedCardDraft } from '../api';
+import type { Deck } from '../types';
 import { Icon, Modal, Notice, Spinner } from './ui';
 
 type PreviewCard = GeneratedCardDraft & { id: string };
 
-export default function FlashcardCreationModal({ open, onClose, api, onCreated }: { open: boolean; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
+export default function FlashcardCreationModal({ open, decks, defaultDeckId, onClose, api, onCreated }: { open: boolean; decks: Deck[]; defaultDeckId?: string; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [sourceContent, setSourceContent] = useState('');
   const [tagText, setTagText] = useState('');
+  const [deckIds, setDeckIds] = useState<string[]>(defaultDeckId ? [defaultDeckId] : []);
   const [tags, setTags] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<PreviewCard[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -22,6 +24,7 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     setSourceContent('');
     setTags([]);
     setTagText('');
+    setDeckIds(defaultDeckId ? [defaultDeckId] : []);
     setDrafts([]);
     setPreviewOpen(false);
     setError(null);
@@ -47,6 +50,7 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
         answer: answer.trim(),
         tags,
         sourceContent: sourceContent.trim() || undefined,
+        deckIds,
       });
       reset();
       await onCreated();
@@ -65,7 +69,7 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     setBusy(true);
     setError(null);
     try {
-      const generated = await api.generateCards({ sourceContent: sourceContent.trim(), count: 3 });
+      const generated = await api.generateCards({ sourceContent: sourceContent.trim(), count: 3, deckId: deckIds[0] });
       if (generated.length === 0) {
         setError('No usable flashcards were generated. Try adding more source detail.');
         return;
@@ -96,6 +100,7 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
         question: card.question.trim(),
         answer: card.answer.trim(),
         sourceContent: sourceContent.trim(),
+        deckIds,
       })));
       reset();
       await onCreated();
@@ -121,6 +126,10 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
     event.preventDefault();
     addTag();
   };
+
+  useEffect(() => {
+    if (open) setDeckIds(defaultDeckId ? [defaultDeckId] : []);
+  }, [defaultDeckId, open]);
 
   return (
     <Modal
@@ -224,6 +233,13 @@ export default function FlashcardCreationModal({ open, onClose, api, onCreated }
             <span className="field__label">Answer</span>
             <textarea value={answer} onChange={(event) => setAnswer(event.currentTarget.value)} placeholder="Write a concise, memorable answer…" rows={5} required />
           </label>
+
+          <fieldset className="field deck-choice">
+            <legend className="field__label">Study sets <small>optional</small></legend>
+            {decks.length === 0 ? <span className="field-help">Create a deck to add this card to a study set.</span> : decks.map((deck) => (
+              <label className="check-row" key={deck.id}><input type="checkbox" checked={deckIds.includes(deck.id)} onChange={() => setDeckIds((previous) => previous.includes(deck.id) ? previous.filter((id) => id !== deck.id) : [...previous, deck.id])} /> {deck.name}</label>
+            ))}
+          </fieldset>
 
           <div className="field-row">
             <label className="field">

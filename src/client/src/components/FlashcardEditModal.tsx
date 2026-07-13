@@ -12,7 +12,7 @@ export default function FlashcardEditModal({ card, decks, api, onClose, onUpdate
 }) {
   const [question, setQuestion] = useState(card.question);
   const [answer, setAnswer] = useState(card.answer);
-  const [deckId, setDeckId] = useState(card.deckId || '');
+  const [deckIds, setDeckIds] = useState(card.deckIds);
   const [tagText, setTagText] = useState('');
   const [tags, setTags] = useState(card.tags);
   const [saving, setSaving] = useState(false);
@@ -44,7 +44,7 @@ export default function FlashcardEditModal({ card, decks, api, onClose, onUpdate
         question: question.trim(),
         answer: answer.trim(),
         tags,
-        deckId: deckId || null,
+        deckIds,
       });
       await onUpdated();
     } catch (requestError) {
@@ -83,13 +83,12 @@ export default function FlashcardEditModal({ card, decks, api, onClose, onUpdate
           <textarea value={answer} onChange={(event) => setAnswer(event.currentTarget.value)} rows={5} required />
         </label>
 
-        <label className="field">
-          <span className="field__label">Deck</span>
-          <select value={deckId} onChange={(event) => setDeckId(event.currentTarget.value)}>
-            <option value="">No deck</option>
-            {decks.map((deck) => <option value={deck.id} key={deck.id}>{deck.name}</option>)}
-          </select>
-        </label>
+        <fieldset className="field deck-choice">
+          <legend className="field__label">Study sets</legend>
+          {decks.length === 0 ? <span className="field-help">No decks yet.</span> : decks.map((deck) => (
+            <label className="check-row" key={deck.id}><input type="checkbox" checked={deckIds.includes(deck.id)} onChange={() => setDeckIds((previous) => previous.includes(deck.id) ? previous.filter((id) => id !== deck.id) : [...previous, deck.id])} /> {deck.name}</label>
+          ))}
+        </fieldset>
 
         <div className="field-row">
           <label className="field">

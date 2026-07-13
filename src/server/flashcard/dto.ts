@@ -5,6 +5,7 @@ export interface CreateCardDto {
   answer: string;
   classId?: string;
   deckId?: string;
+  deckIds?: string[];
   concepts?: string[];
   tags?: string[];
   pdfId?: string;
@@ -37,6 +38,13 @@ export interface CreateDeckDto {
   classId?: string;
 }
 
+export interface UpdateDeckDto {
+  name?: string;
+  description?: string | null;
+}
+
+export interface ReorderDeckCardsDto { cardIds: string[]; }
+
 export interface RecordReviewDto {
   cardId: string;
   isCorrect: boolean;
@@ -50,6 +58,23 @@ export interface StartSessionDto {
 export interface GenerateMcqDto {
   numChoices?: number;
 }
+
+export interface CreateCardLinkDto {
+  sourceCardId: string;
+  targetCardId: string;
+  explanation: string;
+}
+
+export interface CreateCardLinksDto {
+  links: CreateCardLinkDto[];
+}
+
+export interface SuggestCardLinksDto {
+  deckId: string;
+}
+
+export interface ExplainCardLinkDto { sourceCardId: string; targetCardId: string; }
+export interface UpdateCardLinkDto { explanation: string; }
 
 type Input = Record<string, unknown>;
 
@@ -107,6 +132,7 @@ export function parseCreateCard(value: unknown): CreateCardDto {
     answer: requiredString(input, 'answer'),
     classId: optionalString(input, 'classId'),
     deckId: optionalString(input, 'deckId'),
+    deckIds: optionalStringArray(input, 'deckIds'),
     concepts: optionalStringArray(input, 'concepts'),
     tags: optionalStringArray(input, 'tags'),
     pdfId: optionalString(input, 'pdfId'),
@@ -133,6 +159,7 @@ export function parseUpdateCard(value: unknown): UpdateCardDto {
     answer: requiredString(input, 'answer'),
     classId: optionalString(input, 'classId'),
     deckId: optionalNullableString(input, 'deckId'),
+    deckIds: optionalStringArray(input, 'deckIds'),
     concepts: optionalStringArray(input, 'concepts'),
     tags: optionalStringArray(input, 'tags'),
     pdfId: optionalString(input, 'pdfId'),
@@ -166,6 +193,24 @@ export function parseCreateDeck(value: unknown): CreateDeckDto {
   };
 }
 
+export function parseUpdateDeck(value: unknown): UpdateDeckDto {
+  const input = object(value);
+  const name = optionalString(input, 'name');
+  if (name !== undefined && name.length === 0) throw new ValidationError('name must be a non-empty string');
+  return {
+    name,
+    description: optionalNullableString(input, 'description'),
+  };
+}
+
+export function parseReorderDeckCards(value: unknown): ReorderDeckCardsDto {
+  const input = object(value);
+  if (!Array.isArray(input.cardIds) || input.cardIds.some((item) => typeof item !== 'string')) {
+    throw new ValidationError('cardIds must be an array of strings');
+  }
+  return { cardIds: input.cardIds as string[] };
+}
+
 export function parseRecordReview(value: unknown): RecordReviewDto {
   const input = object(value);
   if (typeof input.isCorrect !== 'boolean') throw new ValidationError('isCorrect must be a boolean');
@@ -184,4 +229,36 @@ export function parseStartSession(value: unknown): StartSessionDto {
 export function parseGenerateMcq(value: unknown): GenerateMcqDto {
   const input = object(value);
   return { numChoices: optionalInteger(input, 'numChoices', 2, 6) };
+}
+
+export function parseCreateCardLinks(value: unknown): CreateCardLinksDto {
+  const input = object(value);
+  if (!Array.isArray(input.links) || input.links.length === 0 || input.links.length > 20) {
+    throw new ValidationError('links must be an array containing between 1 and 20 links');
+  }
+  return {
+    links: input.links.map((value) => {
+      const link = object(value);
+      return {
+        sourceCardId: requiredString(link, 'sourceCardId'),
+        targetCardId: requiredString(link, 'targetCardId'),
+        explanation: requiredString(link, 'explanation'),
+      };
+    }),
+  };
+}
+
+export function parseSuggestCardLinks(value: unknown): SuggestCardLinksDto {
+  const input = object(value);
+  return { deckId: requiredString(input, 'deckId') };
+}
+
+export function parseExplainCardLink(value: unknown): ExplainCardLinkDto {
+  const input = object(value);
+  return { sourceCardId: requiredString(input, 'sourceCardId'), targetCardId: requiredString(input, 'targetCardId') };
+}
+
+export function parseUpdateCardLink(value: unknown): UpdateCardLinkDto {
+  const input = object(value);
+  return { explanation: requiredString(input, 'explanation') };
 }

@@ -15,7 +15,7 @@ export interface Card {
   concepts: string[];
   tags: string[];
   classId: string;
-  deckId?: string | null;
+  deckIds: string[];
   pdfId?: string | null;
   pageNumber?: number | null;
   materialType?: string | null;
@@ -32,6 +32,7 @@ export interface Deck {
   description?: string | null;
   classId: string;
   cards: Card[];
+  lastStudiedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,4 +48,18 @@ export interface MultipleChoiceQuestion {
   choices: string[];
   correctIndex: number;
   explanation?: string;
+}
+
+export interface CardLink {
+  id: string;
+  sourceCardId: string;
+  targetCardId: string;
+  explanation: string;
+  createdAt: string;
+}
+
+export interface SuggestedCardLink {
+  sourceCardId: string;
+  targetCardId: string;
+  explanation: string;
 }

@@ -43,6 +43,22 @@ const payload = {
       maxTokens: 900,
       temperature: 0.4,
     },
+    {
+      promptId: 'suggest-card-links',
+      name: 'Suggest Card Connections',
+      description: 'Suggests meaningful, explained connections between accepted flashcards. Returns JSON only.',
+      systemPrompt: 'Identify only strong connections between supplied flashcards. Return JSON only as an object with a links array. Each link must contain sourceCardId, targetCardId, and explanation. The explanation must be one concise sentence that explicitly names both concepts and explains their specific connection using only the supplied card content. Never say concepts are merely related. Use only supplied card IDs. Exclude weak, speculative, duplicate, and self-referential links. Return at most 12 links.',
+      maxTokens: 1800,
+      temperature: 0.2,
+    },
+    {
+      promptId: 'explain-card-link',
+      name: 'Explain Card Connection',
+      description: 'Explains one connection between two accepted flashcards. Returns JSON only.',
+      systemPrompt: 'Return JSON only with one explanation field. Write one concise sentence that explicitly names both supplied concepts and explains their specific connection using only the two cards. Never say they are merely related and never introduce outside facts.',
+      maxTokens: 300,
+      temperature: 0.35,
+    },
   ],
 };
 

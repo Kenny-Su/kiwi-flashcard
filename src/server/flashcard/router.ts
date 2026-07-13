@@ -4,13 +4,19 @@ import type { AppRequestContext } from '../auth/app-token.types';
 import { getAppContext } from '../auth/request-context';
 import {
   parseCreateCard,
+  parseCreateCardLinks,
   parseCreateCards,
   parseCreateDeck,
   parseGenerateCards,
   parseGenerateMcq,
+  parseExplainCardLink,
   parseRecordReview,
+  parseReorderDeckCards,
   parseStartSession,
+  parseSuggestCardLinks,
   parseUpdateCard,
+  parseUpdateCardLink,
+  parseUpdateDeck,
 } from './dto';
 import { FlashcardService } from './flashcard.service';
 
@@ -68,6 +74,31 @@ export function createFlashcardRouter(
     response.status(201).json(await flashcards.generateMcq(getAppContext(request), request.params.id, dto.numChoices || 4));
   }));
 
+  router.get('/card-links', asyncHandler(async (request, response) => {
+    const deckId = typeof request.query.deckId === 'string' ? request.query.deckId : '';
+    response.json(await flashcards.listCardLinks(getAppContext(request), deckId));
+  }));
+
+  router.post('/card-links', asyncHandler(async (request, response) => {
+    response.status(201).json(await flashcards.createCardLinks(getAppContext(request), parseCreateCardLinks(request.body)));
+  }));
+
+  router.post('/card-links/explain', asyncHandler(async (request, response) => {
+    response.json(await flashcards.explainCardLink(getAppContext(request), parseExplainCardLink(request.body)));
+  }));
+
+  router.patch('/card-links/:id', asyncHandler(async (request, response) => {
+    response.json(await flashcards.updateCardLink(getAppContext(request), request.params.id, parseUpdateCardLink(request.body)));
+  }));
+
+  router.delete('/card-links/:id', asyncHandler(async (request, response) => {
+    response.json(await flashcards.deleteCardLink(getAppContext(request), request.params.id));
+  }));
+
+  router.post('/card-links/suggest', asyncHandler(async (request, response) => {
+    response.json(await flashcards.suggestCardLinks(getAppContext(request), parseSuggestCardLinks(request.body)));
+  }));
+
   router.post('/reviews', asyncHandler(async (request, response) => {
     response.status(201).json(await flashcards.recordReview(getAppContext(request), parseRecordReview(request.body)));
   }));
@@ -84,8 +115,24 @@ export function createFlashcardRouter(
     response.status(201).json(await flashcards.createDeck(getAppContext(request), parseCreateDeck(request.body)));
   }));
 
+  router.patch('/decks/:deckId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.updateDeck(getAppContext(request), request.params.deckId, parseUpdateDeck(request.body)));
+  }));
+
+  router.delete('/decks/:deckId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.deleteDeck(getAppContext(request), request.params.deckId));
+  }));
+
   router.post('/decks/:deckId/cards/:cardId', asyncHandler(async (request, response) => {
     response.status(201).json(await flashcards.addCardToDeck(getAppContext(request), request.params.deckId, request.params.cardId));
+  }));
+
+  router.delete('/decks/:deckId/cards/:cardId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.removeCardFromDeck(getAppContext(request), request.params.deckId, request.params.cardId));
+  }));
+
+  router.put('/decks/:deckId/cards/order', asyncHandler(async (request, response) => {
+    response.json(await flashcards.reorderDeckCards(getAppContext(request), request.params.deckId, parseReorderDeckCards(request.body)));
   }));
 
   router.post('/sessions', asyncHandler(async (request, response) => {

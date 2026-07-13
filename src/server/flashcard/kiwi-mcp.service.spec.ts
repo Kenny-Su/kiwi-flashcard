@@ -52,6 +52,25 @@ describe('KiwiMcpService', () => {
     assert.equal(parsed.correctIndex, 0);
   });
 
+  it('parses only explained card-link suggestions', async () => {
+    toolResult = { content: [{ type: 'text', text: JSON.stringify({ links: [
+      { sourceCardId: 'a', targetCardId: 'b', explanation: 'A and B use different approaches.' },
+      { sourceCardId: 'a', targetCardId: 'c', explanation: '' },
+    ] }) }] };
+
+    const links = await service.suggestCardLinks('app-token', 'flashcards', [
+      { id: 'a', question: 'A?', answer: 'A' }, { id: 'b', question: 'B?', answer: 'B' },
+    ]);
+
+    assert.deepEqual(links, [{ sourceCardId: 'a', targetCardId: 'b', explanation: 'A and B use different approaches.' }]);
+  });
+
+  it('generates one grounded card-link explanation', async () => {
+    toolResult = { content: [{ type: 'text', text: '{"explanation":"A and B solve different parts of the same problem."}' }] };
+    const explanation = await service.explainCardLink('app-token', 'flashcards', { question: 'A?', answer: 'A' }, { question: 'B?', answer: 'B' });
+    assert.equal(explanation, 'A and B solve different parts of the same problem.');
+  });
+
   it('rejects non-json text', () => {
     assert.throws(() => (service as any).parseJson('not json'), /AI response did not contain JSON/);
   });
