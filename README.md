@@ -23,5 +23,7 @@ Node.js 24 or newer is required. The SQLite database is created automatically at
 npm run register
 ```
 
-3. Approve the `generate-cards` and `generate-mcq` prompts in Kiwi admin.
+3. Include `context:student_learning:read` in the app's max and enabled scopes, then approve the app's prompts in Kiwi admin. The flashcard creator uses Kiwi's host-proxied `contextualChat` operation, so private learning context stays inside Kiwi and only generated card drafts reach this app.
 4. Enable the app for a class.
+
+For staging, set `FLASHCARD_APP_URL` to the HTTPS Cloudflare Tunnel URL before running `npm run register`. Vite already accepts `*.trycloudflare.com` hosts and proxies `/api` to the local Express process.

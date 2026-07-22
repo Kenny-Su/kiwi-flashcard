@@ -83,6 +83,24 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     }
   };
 
+  const generateFromLearningContext = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const generated = await api.generateCardsFromContext({ count: 3, focus: sourceContent });
+      if (generated.length === 0) {
+        setError('Kiwi could not find enough learning context to create cards yet.');
+        return;
+      }
+      setDrafts(generated.map((card, index) => ({ ...card, id: `context-${Date.now()}-${index}` })));
+      setPreviewOpen(true);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to generate cards from your learning context.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const acceptDrafts = async () => {
     if (drafts.length === 0) {
       setError('Keep at least one card before saving.');
@@ -195,7 +213,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
             <span className="section-heading__icon"><Icon name="sparkles" /></span>
             <div>
               <h3>Generate from source</h3>
-              <p>Turn lecture notes or reading material into three ready-to-study cards.</p>
+              <p>Use your recent Kiwi learning activity, or paste specific material.</p>
             </div>
           </div>
 
@@ -208,6 +226,11 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               rows={8}
             />
           </label>
+
+          <button className="button button--primary button--block" type="button" onClick={() => void generateFromLearningContext()} disabled={busy}>
+            {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
+            Create from my Kiwi context
+          </button>
 
           <button className="button button--secondary button--block" type="button" onClick={() => void generate()} disabled={busy || !sourceContent.trim()}>
             {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}

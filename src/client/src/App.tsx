@@ -5,11 +5,11 @@ import FlashcardManager from './components/FlashcardManager';
 import { Icon, Notice, Spinner } from './components/ui';
 
 export default function App() {
-  const { context, appToken, error } = useKiwiBridge();
+  const { context, appToken, error, contextualChat } = useKiwiBridge();
   const api = useMemo(() => {
     if (!context?.classId || !appToken) return null;
-    return createApiClient(appToken, context.classId);
-  }, [appToken, context?.classId]);
+    return createApiClient(appToken, context.classId, contextualChat);
+  }, [appToken, context?.classId, contextualChat]);
 
   if (!context) {
     return <Loading message="Waiting for Kiwi class context..." detail={error} />;

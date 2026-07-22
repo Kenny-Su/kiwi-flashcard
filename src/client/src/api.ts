@@ -1,4 +1,5 @@
 import type { Card, CardLink, Deck, MultipleChoiceQuestion, Stats, SuggestedCardLink } from './types';
+import type { ContextualChatResponse } from './kiwiBridge';
 
 export interface GeneratedCardDraft {
   question: string;
@@ -20,6 +21,7 @@ export interface ApiClient {
   updateCard(id: string, input: Partial<Card>): Promise<Card>;
   deleteCard(id: string): Promise<void>;
   generateCards(input: { sourceContent: string; count: number; deckId?: string }): Promise<GeneratedCardDraft[]>;
+  generateCardsFromContext(input: { count: number; focus?: string }): Promise<GeneratedCardDraft[]>;
   generateMcq(id: string, numChoices?: number): Promise<MultipleChoiceQuestion>;
   listCardLinks(deckId: string): Promise<CardLink[]>;
   createCardLinks(links: Array<{ sourceCardId: string; targetCardId: string; explanation: string }>): Promise<CardLink[]>;
@@ -40,7 +42,11 @@ export interface ApiClient {
   endSession(sessionId: string): Promise<void>;
 }
 
-export function createApiClient(token: string, classId: string): ApiClient {
+export function createApiClient(
+  token: string,
+  classId: string,
+  contextualChat: (params: Record<string, unknown>) => Promise<ContextualChatResponse>,
+): ApiClient {
   async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const response = await fetch(path, {
       ...options,
@@ -70,6 +76,43 @@ export function createApiClient(token: string, classId: string): ApiClient {
     updateCard: (id, input) => request(`/api/cards/${id}`, { method: 'PATCH', body: JSON.stringify({ ...input, classId }) }),
     deleteCard: async (id) => { await request(`/api/cards/${id}`, { method: 'DELETE' }); },
     generateCards: (input) => request('/api/cards/generate', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
+    generateCardsFromContext: async ({ count, focus }) => {
+      const retrievalQuery = focus?.trim().slice(0, 500) || undefined;
+      const response = await contextualChat({
+        promptId: 'generate-cards',
+        userMessage: `Generate ${count} personalized flashcards from my learning context.${retrievalQuery ? ` Focus on: ${retrievalQuery}.` : ''}`,
+        contextRequest: {
+          kind: 'student_learning_context',
+          scope: 'current_user_current_class',
+          timeWindowDays: 30,
+          include: ['recent_questions', 'weak_concepts', 'relevant_materials'],
+          retrievalQuery,
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            flashcards: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  question: { type: 'string' },
+                  answer: { type: 'string' },
+                },
+                required: ['question', 'answer'],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ['flashcards'],
+          additionalProperties: false,
+        },
+      });
+      const parsed = JSON.parse(response.output) as { flashcards?: GeneratedCardDraft[] };
+      return (parsed.flashcards || [])
+        .filter((card) => typeof card?.question === 'string' && typeof card?.answer === 'string')
+        .slice(0, count);
+    },
     generateMcq: (id, numChoices = 4) => request(`/api/cards/${id}/mcq`, { method: 'POST', body: JSON.stringify({ numChoices }) }),
     listCardLinks: (deckId) => request(`/api/card-links?deckId=${encodeURIComponent(deckId)}&${classQuery}`),
     createCardLinks: (links) => request('/api/card-links', { method: 'POST', body: JSON.stringify({ links }) }),
