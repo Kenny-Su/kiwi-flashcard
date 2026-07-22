@@ -227,15 +227,17 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
             />
           </label>
 
-          <button className="button button--primary button--block" type="button" onClick={() => void generateFromLearningContext()} disabled={busy}>
-            {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
-            Create from my Kiwi context
-          </button>
+          <div className="generation-actions">
+            <button className="button button--primary button--block" type="button" onClick={() => void generateFromLearningContext()} disabled={busy}>
+              {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
+              Create from my Kiwi context
+            </button>
 
-          <button className="button button--secondary button--block" type="button" onClick={() => void generate()} disabled={busy || !sourceContent.trim()}>
-            {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
-            Generate 3 cards
-          </button>
+            <button className="button button--secondary button--block" type="button" onClick={() => void generate()} disabled={busy || !sourceContent.trim()}>
+              {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
+              Generate 3 cards
+            </button>
+          </div>
         </section>
 
         <form className="creation-pane" id={formId} onSubmit={(event) => void create(event)}>

@@ -937,6 +937,11 @@ button.chip:hover {
   border-radius: var(--radius-lg);
 }
 
+.generation-actions {
+  display: grid;
+  gap: 12px;
+}
+
 .generation-preview {
   display: grid;
   gap: 16px;
