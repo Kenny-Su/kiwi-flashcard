@@ -19,6 +19,7 @@ import {
   parseUpdateDeck,
 } from './dto';
 import { FlashcardService } from './flashcard.service';
+import { ExportTicketService } from './export-tickets';
 
 type AppRequest = Request & { appContext?: AppRequestContext };
 type AsyncHandler = (request: AppRequest, response: Response, next: NextFunction) => Promise<void>;
@@ -32,12 +33,31 @@ function asyncHandler(handler: AsyncHandler): RequestHandler {
 export function createFlashcardRouter(
   flashcards: FlashcardService,
   verifier = new AppTokenVerifier(),
+  exports = new ExportTicketService(),
 ): Router {
   const router = Router();
+
+  // A random, short-lived, single-use URL lets an embedded app hand the file
+  // to a top-level browser download without putting the app token in the URL.
+  router.get('/exports/:ticket', (request, response, next) => {
+    try {
+      const file = exports.consume(request.params.ticket);
+      response.setHeader('Content-Type', file.contentType);
+      const fallback = file.filename.replace(/[^\x20-\x7E]/g, '_');
+      response.setHeader('Content-Disposition', `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+      response.setHeader('Cache-Control', 'no-store');
+      response.send(file.contents);
+    } catch (error) { next(error); }
+  });
 
   router.use(asyncHandler(async (request, _response, next) => {
     request.appContext = await verifier.authenticate(request);
     next();
+  }));
+
+  router.post('/exports', asyncHandler(async (request, response) => {
+    const ticket = exports.create(request.body);
+    response.status(201).json({ downloadUrl: `/api/exports/${ticket}` });
   }));
 
   router.get('/cards', asyncHandler(async (request, response) => {

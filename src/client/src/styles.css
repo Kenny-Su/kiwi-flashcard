@@ -384,6 +384,15 @@ p {
 .deck-tile p { min-height: 42px; margin: 0; color: var(--ink-muted); }
 .deck-tile small, .deck-tile span { color: var(--ink-muted); }
 .deck-tile__count { color: var(--primary) !important; font-size: .76rem; font-weight: 750; text-transform: uppercase; }
+
+.export-copy { margin-top: 0; color: var(--text-muted); line-height: 1.55; }
+.export-options { display: grid; grid-template-columns: max-content 1fr; gap: .75rem 1rem; align-items: center; margin-top: 1.25rem; }
+.export-options p { margin: 0; color: var(--text-muted); font-size: .88rem; line-height: 1.4; }
+
+@media (max-width: 520px) {
+  .export-options { grid-template-columns: 1fr; }
+  .export-options p { margin: -.35rem 0 .5rem; }
+}
 .deck-tile--create, .deck-tile--library { align-items: flex-start; justify-content: center; cursor: pointer; border-style: dashed; }
 .deck-tile--create { background: var(--accent-soft); }
 .deck-tile--create strong, .deck-tile--library strong { font-size: 1.05rem; }

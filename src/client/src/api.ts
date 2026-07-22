@@ -40,6 +40,7 @@ export interface ApiClient {
   reorderDeckCards(deckId: string, cardIds: string[]): Promise<Card[]>;
   startSession(deckId?: string): Promise<{ id: string }>;
   endSession(sessionId: string): Promise<void>;
+  prepareExport(input: { filename: string; contents: string; format: 'csv' | 'json' }): Promise<{ downloadUrl: string }>;
 }
 
 export function createApiClient(
@@ -131,5 +132,6 @@ export function createApiClient(
     reorderDeckCards: (deckId, cardIds) => request(`/api/decks/${deckId}/cards/order`, { method: 'PUT', body: JSON.stringify({ cardIds }) }),
     startSession: (deckId) => request('/api/sessions', { method: 'POST', body: JSON.stringify({ deckId }) }),
     endSession: async (sessionId) => { await request(`/api/sessions/${sessionId}/end`, { method: 'POST' }); },
+    prepareExport: (input) => request('/api/exports', { method: 'POST', body: JSON.stringify(input) }),
   };
 }
