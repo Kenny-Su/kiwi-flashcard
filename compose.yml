@@ -1,0 +1,36 @@
+name: kiwi-flashcard
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.production
+    expose:
+      - "8002"
+    volumes:
+      - flashcard_data:/app/data
+    restart: unless-stopped
+
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env.aws
+    restart: unless-stopped
+
+volumes:
+  flashcard_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,7 @@
+# The standard Caddy image does not include DNS provider plugins. Build the
+# Route53 module in so Caddy can complete DNS-01 challenges for both hostnames.
+FROM caddy:builder AS builder
+RUN xcaddy build --with github.com/caddy-dns/route53
+
+FROM caddy:latest
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
