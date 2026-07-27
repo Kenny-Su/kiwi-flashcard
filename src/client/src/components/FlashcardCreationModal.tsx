@@ -4,11 +4,14 @@ import type { Deck } from '../types';
 import { Icon, Modal, Notice, Spinner } from './ui';
 
 type PreviewCard = GeneratedCardDraft & { id: string };
+type CreationMethod = 'choose' | 'prompt' | 'context' | 'manual';
 
 export default function FlashcardCreationModal({ open, decks, defaultDeckId, onClose, api, onCreated }: { open: boolean; decks: Deck[]; defaultDeckId?: string; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
+  const [method, setMethod] = useState<CreationMethod>('choose');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [sourceContent, setSourceContent] = useState('');
+  const [contextFocus, setContextFocus] = useState('');
   const [tagText, setTagText] = useState('');
   const [deckIds, setDeckIds] = useState<string[]>(defaultDeckId ? [defaultDeckId] : []);
   const [tags, setTags] = useState<string[]>([]);
@@ -19,9 +22,11 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
   const formId = useId();
 
   const reset = () => {
+    setMethod('choose');
     setQuestion('');
     setAnswer('');
     setSourceContent('');
+    setContextFocus('');
     setTags([]);
     setTagText('');
     setDeckIds(defaultDeckId ? [defaultDeckId] : []);
@@ -87,7 +92,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     setBusy(true);
     setError(null);
     try {
-      const generated = await api.generateCardsFromContext({ count: 3, focus: sourceContent });
+      const generated = await api.generateCardsFromContext({ count: 3, focus: contextFocus });
       if (generated.length === 0) {
         setError('Kiwi could not find enough learning context to create cards yet.');
         return;
@@ -117,7 +122,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
       await api.createCards(drafts.map((card) => ({
         question: card.question.trim(),
         answer: card.answer.trim(),
-        sourceContent: sourceContent.trim(),
+        sourceContent: method === 'context' ? contextFocus.trim() : sourceContent.trim(),
         deckIds,
       })));
       reset();
@@ -146,31 +151,78 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
   };
 
   useEffect(() => {
-    if (open) setDeckIds(defaultDeckId ? [defaultDeckId] : []);
+    if (open) {
+      setMethod('choose');
+      setDeckIds(defaultDeckId ? [defaultDeckId] : []);
+    }
   }, [defaultDeckId, open]);
+
+  const chooseMethod = (nextMethod: Exclude<CreationMethod, 'choose'>) => {
+    setMethod(nextMethod);
+    setError(null);
+  };
+
+  const backToMethods = () => {
+    setMethod('choose');
+    setError(null);
+  };
+
+  const deckChoices = (
+    <fieldset className="field deck-choice">
+      <legend className="field__label">Study sets <small>optional</small></legend>
+      {decks.length === 0 ? <span className="field-help">Create a deck to add these cards to a study set.</span> : decks.map((deck) => (
+        <label className="check-row" key={deck.id}><input type="checkbox" checked={deckIds.includes(deck.id)} onChange={() => setDeckIds((previous) => previous.includes(deck.id) ? previous.filter((id) => id !== deck.id) : [...previous, deck.id])} /> {deck.name}</label>
+      ))}
+    </fieldset>
+  );
+
+  const title = previewOpen
+    ? 'Review generated cards'
+    : method === 'choose'
+      ? 'How would you like to create cards?'
+      : method === 'manual'
+        ? 'Write a flashcard'
+        : method === 'context'
+          ? 'Generate from chat history'
+          : 'Generate from your notes';
 
   return (
     <Modal
       open={open}
       onClose={close}
-      title={previewOpen ? 'Review generated cards' : 'Create a flashcard'}
-      eyebrow={previewOpen ? 'Edit, reject, then save' : 'Build your deck'}
+      title={title}
+      eyebrow={previewOpen ? 'Step 3 of 3 · Review and save' : method === 'choose' ? 'Step 1 of 2 · Choose a method' : 'Step 2 of 2 · Add details'}
       size="large"
       footer={
         previewOpen ? (
           <>
-            <button className="button button--ghost" type="button" disabled={busy} onClick={() => { setPreviewOpen(false); setError(null); }}>Back to source</button>
+            <button className="button button--ghost" type="button" disabled={busy} onClick={() => { setPreviewOpen(false); setError(null); }}><Icon name="arrow-left" /> Back</button>
             <button className="button button--primary" type="button" disabled={busy || drafts.length === 0} onClick={() => void acceptDrafts()}>
               {busy ? <Spinner label="Saving cards" size="small" /> : <Icon name="check" />}
               Add {drafts.length} {drafts.length === 1 ? 'card' : 'cards'}
             </button>
           </>
-        ) : (
+        ) : method === 'choose' ? (
+          <button className="button button--ghost" type="button" onClick={close}>Cancel</button>
+        ) : method === 'manual' ? (
           <>
-            <button className="button button--ghost" type="button" onClick={close}>Cancel</button>
+            <button className="button button--ghost" type="button" disabled={busy} onClick={backToMethods}><Icon name="arrow-left" /> Back</button>
             <button className="button button--primary" type="submit" form={formId} disabled={busy}>
               {busy ? <Spinner label="Creating card" size="small" /> : <Icon name="add" />}
               Create card
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="button button--ghost" type="button" disabled={busy} onClick={backToMethods}><Icon name="arrow-left" /> Back</button>
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={busy || (method === 'prompt' && !sourceContent.trim())}
+              onClick={() => void (method === 'context' ? generateFromLearningContext() : generate())}
+            >
+              {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
+              Generate 3 cards
             </button>
           </>
         )
@@ -207,39 +259,82 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
             </div>
           )}
         </section>
-      ) : <div className="creation-grid" aria-busy={busy}>
-        <section className="creation-pane creation-pane--ai">
+      ) : method === 'choose' ? (
+        <section className="creation-methods" aria-label="Flashcard creation methods">
+          <p className="creation-methods__intro">Choose a starting point. You can review and edit anything Kiwi generates before it is saved.</p>
+          <div className="creation-methods__grid">
+            <button className="creation-method-card creation-method-card--recommended" type="button" onClick={() => chooseMethod('prompt')}>
+              <span className="creation-method-card__icon"><Icon name="sparkles" size={22} /></span>
+              <span className="creation-method-card__copy">
+                <span className="creation-method-card__meta">Recommended</span>
+                <strong>Generate from notes</strong>
+                <span>Paste a passage, topic, or class notes and create three focused cards.</span>
+              </span>
+              <Icon name="arrow-right" />
+            </button>
+            <button className="creation-method-card" type="button" onClick={() => chooseMethod('context')}>
+              <span className="creation-method-card__icon"><Icon name="study" size={22} /></span>
+              <span className="creation-method-card__copy">
+                <strong>Generate from chat history</strong>
+                <span>Turn your recent Kiwi learning conversations into review cards.</span>
+              </span>
+              <Icon name="arrow-right" />
+            </button>
+            <button className="creation-method-card" type="button" onClick={() => chooseMethod('manual')}>
+              <span className="creation-method-card__icon"><Icon name="cards" size={22} /></span>
+              <span className="creation-method-card__copy">
+                <strong>Write one manually</strong>
+                <span>Create a single card with your own question and answer.</span>
+              </span>
+              <Icon name="arrow-right" />
+            </button>
+          </div>
+        </section>
+      ) : method === 'prompt' ? (
+        <section className="creation-pane creation-pane--focused" aria-busy={busy}>
           <div className="section-heading">
             <span className="section-heading__icon"><Icon name="sparkles" /></span>
             <div>
-              <h3>Generate from source</h3>
-              <p>Use your recent Kiwi learning activity, or paste specific material.</p>
+              <h3>What should the cards cover?</h3>
+              <p>Include enough detail for Kiwi to identify the most useful ideas to recall.</p>
             </div>
           </div>
 
           <label className="field">
-            <span className="field__label">Source content <small>optional for a manual card</small></span>
+            <span className="field__label">Notes or source material</span>
             <textarea
               value={sourceContent}
               onChange={(event) => setSourceContent(event.currentTarget.value)}
               placeholder="Paste a passage, concept summary, or class notes…"
-              rows={8}
+              rows={10}
+              autoFocus
+            />
+            <span className="field-help">Kiwi will create three drafts for you to review before saving.</span>
+          </label>
+          {deckChoices}
+        </section>
+      ) : method === 'context' ? (
+        <section className="creation-pane creation-pane--focused" aria-busy={busy}>
+          <div className="context-generation">
+            <span className="context-generation__icon"><Icon name="study" size={28} /></span>
+            <div>
+              <h3>Use your recent Kiwi conversations</h3>
+              <p>Kiwi will look at your recent learning activity and turn the most useful concepts into three editable flashcards.</p>
+            </div>
+          </div>
+          <label className="field">
+            <span className="field__label">What should Kiwi focus on? <small>optional</small></span>
+            <textarea
+              value={contextFocus}
+              onChange={(event) => setContextFocus(event.currentTarget.value)}
+              placeholder="For example: focus on vocabulary from today’s discussion…"
+              rows={4}
+              autoFocus
             />
           </label>
-
-          <div className="generation-actions">
-            <button className="button button--primary button--block" type="button" onClick={() => void generateFromLearningContext()} disabled={busy}>
-              {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
-              Create from my Kiwi context
-            </button>
-
-            <button className="button button--secondary button--block" type="button" onClick={() => void generate()} disabled={busy || !sourceContent.trim()}>
-              {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
-              Generate 3 cards
-            </button>
-          </div>
+          {deckChoices}
         </section>
-
+      ) : (
         <form className="creation-pane" id={formId} onSubmit={(event) => void create(event)}>
           <div className="section-heading">
             <span className="section-heading__icon"><Icon name="cards" /></span>
@@ -259,12 +354,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
             <textarea value={answer} onChange={(event) => setAnswer(event.currentTarget.value)} placeholder="Write a concise, memorable answer…" rows={5} required />
           </label>
 
-          <fieldset className="field deck-choice">
-            <legend className="field__label">Study sets <small>optional</small></legend>
-            {decks.length === 0 ? <span className="field-help">Create a deck to add this card to a study set.</span> : decks.map((deck) => (
-              <label className="check-row" key={deck.id}><input type="checkbox" checked={deckIds.includes(deck.id)} onChange={() => setDeckIds((previous) => previous.includes(deck.id) ? previous.filter((id) => id !== deck.id) : [...previous, deck.id])} /> {deck.name}</label>
-            ))}
-          </fieldset>
+          {deckChoices}
 
           <div className="field-row">
             <label className="field">
@@ -290,7 +380,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
             </div>
           )}
         </form>
-      </div>}
+      )}
     </Modal>
   );
 }
