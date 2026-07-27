@@ -45,6 +45,19 @@ describe('KiwiMcpService', () => {
     const cards = await service.generateCards('app-token', 'flashcards', 'source', 1);
 
     assert.deepEqual(cards, [{ question: 'Q', answer: 'A' }]);
+    assert.match(toolCalls[0][0].arguments.userMessage, /^Generate exactly 1 flashcard/);
+  });
+
+  it('lets Kiwi choose up to ten useful cards in auto mode', async () => {
+    toolResult = { content: [{ type: 'text', text: JSON.stringify({
+      flashcards: Array.from({ length: 11 }, (_, index) => ({ question: `Q${index}`, answer: `A${index}` })),
+    }) }] };
+
+    const cards = await service.generateCards('app-token', 'flashcards', 'source', 'auto');
+
+    assert.equal(cards.length, 10);
+    assert.match(toolCalls[0][0].arguments.userMessage, /Choose the number of flashcards needed/);
+    assert.match(toolCalls[0][0].arguments.userMessage, /between 1 and 10 cards/);
   });
 
   it('parses fenced JSON', () => {

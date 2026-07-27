@@ -1,10 +1,11 @@
 import { useEffect, useId, useState, type FormEvent, type KeyboardEvent } from 'react';
-import type { ApiClient, GeneratedCardDraft } from '../api';
+import type { ApiClient, CardGenerationCount, GeneratedCardDraft } from '../api';
 import type { Deck } from '../types';
 import { Icon, Modal, Notice, Spinner } from './ui';
 
 type PreviewCard = GeneratedCardDraft & { id: string };
 type CreationMethod = 'choose' | 'prompt' | 'context' | 'manual';
+const GENERATION_COUNTS: CardGenerationCount[] = ['auto', 3, 5, 10];
 
 export default function FlashcardCreationModal({ open, decks, defaultDeckId, onClose, api, onCreated }: { open: boolean; decks: Deck[]; defaultDeckId?: string; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
   const [method, setMethod] = useState<CreationMethod>('choose');
@@ -15,6 +16,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
   const [tagText, setTagText] = useState('');
   const [deckIds, setDeckIds] = useState<string[]>(defaultDeckId ? [defaultDeckId] : []);
   const [tags, setTags] = useState<string[]>([]);
+  const [generationCount, setGenerationCount] = useState<CardGenerationCount>(3);
   const [drafts, setDrafts] = useState<PreviewCard[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -74,7 +76,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     setBusy(true);
     setError(null);
     try {
-      const generated = await api.generateCards({ sourceContent: sourceContent.trim(), count: 3, deckId: deckIds[0] });
+      const generated = await api.generateCards({ sourceContent: sourceContent.trim(), count: generationCount, deckId: deckIds[0] });
       if (generated.length === 0) {
         setError('No usable flashcards were generated. Try adding more source detail.');
         return;
@@ -92,7 +94,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     setBusy(true);
     setError(null);
     try {
-      const generated = await api.generateCardsFromContext({ count: 3, focus: contextFocus });
+      const generated = await api.generateCardsFromContext({ count: generationCount, focus: contextFocus });
       if (generated.length === 0) {
         setError('Kiwi could not find enough learning context to create cards yet.');
         return;
@@ -176,6 +178,32 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     </fieldset>
   );
 
+  const generationCountChoice = (
+    <fieldset className="field generation-count">
+      <legend className="field__label">Number of cards</legend>
+      <div className="generation-count__options" aria-label="Number of cards">
+        {GENERATION_COUNTS.map((count) => (
+          <button
+            type="button"
+            key={count}
+            aria-pressed={generationCount === count}
+            disabled={busy}
+            onClick={() => setGenerationCount(count)}
+          >
+            {count === 'auto' ? 'Auto' : count}
+          </button>
+        ))}
+      </div>
+      <span className="field-help">
+        {generationCount === 'auto'
+          ? 'Kiwi will create 1–10 cards based on the useful concepts it finds.'
+          : `Kiwi will create exactly ${generationCount} editable cards.`}
+      </span>
+    </fieldset>
+  );
+
+  const generateButtonLabel = generationCount === 'auto' ? 'Generate cards' : `Generate ${generationCount} cards`;
+
   const title = previewOpen
     ? 'Review generated cards'
     : method === 'choose'
@@ -222,7 +250,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               onClick={() => void (method === 'context' ? generateFromLearningContext() : generate())}
             >
               {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
-              Generate 3 cards
+              {generateButtonLabel}
             </button>
           </>
         )
@@ -268,7 +296,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               <span className="creation-method-card__copy">
                 <span className="creation-method-card__meta">Recommended</span>
                 <strong>Generate from notes</strong>
-                <span>Paste a passage, topic, or class notes and create three focused cards.</span>
+                <span>Paste a passage, topic, or class notes and create a focused set of cards.</span>
               </span>
               <Icon name="arrow-right" />
             </button>
@@ -309,8 +337,8 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               rows={10}
               autoFocus
             />
-            <span className="field-help">Kiwi will create three drafts for you to review before saving.</span>
           </label>
+          {generationCountChoice}
           {deckChoices}
         </section>
       ) : method === 'context' ? (
@@ -319,7 +347,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
             <span className="context-generation__icon"><Icon name="study" size={28} /></span>
             <div>
               <h3>Use your recent Kiwi conversations</h3>
-              <p>Kiwi will look at your recent learning activity and turn the most useful concepts into three editable flashcards.</p>
+              <p>Kiwi will look at your recent learning activity and turn the most useful concepts into editable flashcards.</p>
             </div>
           </div>
           <label className="field">
@@ -332,6 +360,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               autoFocus
             />
           </label>
+          {generationCountChoice}
           {deckChoices}
         </section>
       ) : (

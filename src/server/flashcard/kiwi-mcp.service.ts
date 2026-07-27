@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { CardGenerationCount } from './dto';
 
 type ClientFactory = () => Client;
 type TransportFactory = (url: URL, token: string) => StreamableHTTPClientTransport;
@@ -31,14 +32,18 @@ export class KiwiMcpService {
     }),
   ) {}
 
-  async generateCards(token: string, appSlug: string, sourceContent: string, count: number): Promise<GeneratedCard[]> {
-    const userMessage = `Generate ${count} flashcards from this educational content. Return JSON only.\n\n${sourceContent}`;
+  async generateCards(token: string, appSlug: string, sourceContent: string, count: CardGenerationCount): Promise<GeneratedCard[]> {
+    const maxCards = count === 'auto' ? 10 : count;
+    const quantityInstruction = count === 'auto'
+      ? 'Choose the number of flashcards needed to cover the distinct, useful concepts in this educational content. Generate between 1 and 10 cards, and avoid redundant or trivial cards.'
+      : `Generate exactly ${count} ${count === 1 ? 'flashcard' : 'flashcards'} from this educational content.`;
+    const userMessage = `${quantityInstruction} Return JSON only.\n\n${sourceContent}`;
     const text = await this.callKiwiAppChat(token, appSlug, 'generate-cards', userMessage);
     const parsed = this.parseJson(text);
     const cards = Array.isArray(parsed) ? parsed : Array.isArray(parsed.flashcards) ? parsed.flashcards : parsed.question ? [parsed] : [];
     return cards
       .filter((card: any) => card?.question && card?.answer)
-      .slice(0, count)
+      .slice(0, maxCards)
       .map((card: any) => ({
         question: String(card.question),
         answer: String(card.answer),

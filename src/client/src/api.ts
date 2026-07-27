@@ -6,6 +6,8 @@ export interface GeneratedCardDraft {
   answer: string;
 }
 
+export type CardGenerationCount = 'auto' | 3 | 5 | 10;
+
 export type AcceptedCardDraft = GeneratedCardDraft & {
   sourceContent?: string;
   deckId?: string;
@@ -20,8 +22,8 @@ export interface ApiClient {
   createCards(input: AcceptedCardDraft[]): Promise<Card[]>;
   updateCard(id: string, input: Partial<Card>): Promise<Card>;
   deleteCard(id: string): Promise<void>;
-  generateCards(input: { sourceContent: string; count: number; deckId?: string }): Promise<GeneratedCardDraft[]>;
-  generateCardsFromContext(input: { count: number; focus?: string }): Promise<GeneratedCardDraft[]>;
+  generateCards(input: { sourceContent: string; count: CardGenerationCount; deckId?: string }): Promise<GeneratedCardDraft[]>;
+  generateCardsFromContext(input: { count: CardGenerationCount; focus?: string }): Promise<GeneratedCardDraft[]>;
   generateMcq(id: string, numChoices?: number): Promise<MultipleChoiceQuestion>;
   listCardLinks(deckId: string): Promise<CardLink[]>;
   createCardLinks(links: Array<{ sourceCardId: string; targetCardId: string; explanation: string }>): Promise<CardLink[]>;
@@ -79,9 +81,13 @@ export function createApiClient(
     generateCards: (input) => request('/api/cards/generate', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
     generateCardsFromContext: async ({ count, focus }) => {
       const retrievalQuery = focus?.trim().slice(0, 500) || undefined;
+      const maxCards = count === 'auto' ? 10 : count;
+      const quantityInstruction = count === 'auto'
+        ? 'Choose the number of personalized flashcards needed to cover the distinct, useful concepts in my learning context. Generate between 1 and 10 cards, and avoid redundant or trivial cards.'
+        : `Generate exactly ${count} personalized flashcards from my learning context.`;
       const response = await contextualChat({
         promptId: 'generate-cards',
-        userMessage: `Generate ${count} personalized flashcards from my learning context.${retrievalQuery ? ` Focus on: ${retrievalQuery}.` : ''}`,
+        userMessage: `${quantityInstruction}${retrievalQuery ? ` Focus on: ${retrievalQuery}.` : ''}`,
         contextRequest: {
           kind: 'student_learning_context',
           scope: 'current_user_current_class',
@@ -103,6 +109,8 @@ export function createApiClient(
                 required: ['question', 'answer'],
                 additionalProperties: false,
               },
+              minItems: count === 'auto' ? 1 : count,
+              maxItems: maxCards,
             },
           },
           required: ['flashcards'],
@@ -110,9 +118,10 @@ export function createApiClient(
         },
       });
       const parsed = JSON.parse(response.output) as { flashcards?: GeneratedCardDraft[] };
-      return (parsed.flashcards || [])
+      const cards = Array.isArray(parsed.flashcards) ? parsed.flashcards : [];
+      return cards
         .filter((card) => typeof card?.question === 'string' && typeof card?.answer === 'string')
-        .slice(0, count);
+        .slice(0, maxCards);
     },
     generateMcq: (id, numChoices = 4) => request(`/api/cards/${id}/mcq`, { method: 'POST', body: JSON.stringify({ numChoices }) }),
     listCardLinks: (deckId) => request(`/api/card-links?deckId=${encodeURIComponent(deckId)}&${classQuery}`),

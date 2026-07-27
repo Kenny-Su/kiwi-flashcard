@@ -163,6 +163,14 @@ describe('FlashcardService with SQLite', () => {
     assert.deepEqual(generateCalls[0], ['app-token', 'flashcards', 'Class context', 1]);
   });
 
+  it('passes auto generation through and keeps three as the omitted default', async () => {
+    await service.generateCards(context, { sourceContent: 'Auto context', count: 'auto' });
+    await service.generateCards(context, { sourceContent: 'Default context' });
+
+    assert.deepEqual(generateCalls[0], ['app-token', 'flashcards', 'Auto context', 'auto']);
+    assert.deepEqual(generateCalls[1], ['app-token', 'flashcards', 'Default context', 3]);
+  });
+
   it('stores an accepted batch of generated card drafts', async () => {
     const cards = await service.createCards(context, { cards: [
       { question: 'Edited Q1', answer: 'Edited A1', sourceContent: 'Class context' },

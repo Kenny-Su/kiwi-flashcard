@@ -90,7 +90,7 @@ export class FlashcardService {
 
   async generateCards(ctx: AppRequestContext, dto: GenerateCardsDto) {
     if (dto.deckId) this.assertDeckOwned(ctx, dto.deckId);
-    return this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, dto.sourceContent, dto.count || 3);
+    return this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, dto.sourceContent, dto.count ?? 3);
   }
 
   async generateMcq(ctx: AppRequestContext, id: string, numChoices = 4) {

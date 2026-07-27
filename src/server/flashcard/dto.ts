@@ -22,9 +22,11 @@ export interface CreateCardsDto {
   cards: CreateCardDto[];
 }
 
+export type CardGenerationCount = number | 'auto';
+
 export interface GenerateCardsDto {
   sourceContent: string;
-  count?: number;
+  count?: CardGenerationCount;
   classId?: string;
   deckId?: string;
   pdfId?: string;
@@ -116,6 +118,15 @@ function optionalInteger(input: Input, key: string, min: number, max = Number.MA
   return value as number;
 }
 
+function optionalGenerationCount(input: Input, key: string): CardGenerationCount | undefined {
+  const value = input[key];
+  if (value === undefined || value === 'auto') return value;
+  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 10) {
+    throw new ValidationError(`${key} must be "auto" or an integer between 1 and 10`);
+  }
+  return value as number;
+}
+
 function optionalStringArray(input: Input, key: string): string[] | undefined {
   const value = input[key];
   if (value === undefined) return undefined;
@@ -175,7 +186,7 @@ export function parseGenerateCards(value: unknown): GenerateCardsDto {
   const input = object(value);
   return {
     sourceContent: requiredString(input, 'sourceContent'),
-    count: optionalInteger(input, 'count', 1, 10),
+    count: optionalGenerationCount(input, 'count'),
     classId: optionalString(input, 'classId'),
     deckId: optionalString(input, 'deckId'),
     pdfId: optionalString(input, 'pdfId'),

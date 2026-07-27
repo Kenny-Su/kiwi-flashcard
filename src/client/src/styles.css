@@ -1040,6 +1040,54 @@ button.chip:hover {
   line-height: 1.55;
 }
 
+.generation-count {
+  padding: 0;
+  border: 0;
+}
+
+.generation-count__options {
+  width: max-content;
+  max-width: 100%;
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+
+.generation-count__options button {
+  min-width: 50px;
+  height: 34px;
+  padding: 0 13px;
+  color: var(--muted);
+  font-weight: 700;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.generation-count__options button:hover:not(:disabled) {
+  color: var(--primary);
+}
+
+.generation-count__options button:focus-visible {
+  outline: 3px solid rgba(25, 111, 88, 0.18);
+  outline-offset: 1px;
+}
+
+.generation-count__options button[aria-pressed="true"] {
+  color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(19, 38, 30, 0.1);
+}
+
+.generation-count__options button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .generation-preview {
   display: grid;
   gap: 16px;

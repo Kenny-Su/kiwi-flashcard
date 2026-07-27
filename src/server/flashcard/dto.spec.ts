@@ -47,7 +47,9 @@ describe('request validation', () => {
   });
 
   it('enforces generation limits', () => {
-    assert.throws(() => parseGenerateCards({ sourceContent: 'Source', count: 11 }), /count must be an integer/);
+    assert.equal(parseGenerateCards({ sourceContent: 'Source', count: 'auto' }).count, 'auto');
+    assert.throws(() => parseGenerateCards({ sourceContent: 'Source', count: 11 }), /count must be "auto" or an integer/);
+    assert.throws(() => parseGenerateCards({ sourceContent: 'Source', count: 'all' }), /count must be "auto" or an integer/);
     assert.throws(() => parseGenerateMcq({ numChoices: 1 }), /numChoices must be an integer/);
   });
 
