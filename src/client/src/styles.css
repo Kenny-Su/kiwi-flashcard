@@ -1508,6 +1508,12 @@ button.chip:hover {
   width: 100%;
   height: 520px;
   display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.concept-map__canvas > svg:active {
+  cursor: grabbing;
 }
 
 .concept-map__zoom {
@@ -1566,11 +1572,19 @@ button.chip:hover {
 }
 
 .concept-map__node {
-  cursor: pointer;
+  cursor: grab;
   outline: none;
   opacity: 1;
   animation: map-node-fade 380ms ease both;
   transition: opacity 220ms ease;
+}
+
+.concept-map__node--dragging {
+  cursor: grabbing;
+}
+
+.concept-map__node--dragging rect {
+  transition: none;
 }
 
 .concept-map__node rect {
