@@ -71,12 +71,13 @@ export interface ApiClient {
 }
 
 export function createApiClient(
-  token: string,
+  getToken: (staleToken?: string) => Promise<string>,
   classId: string,
   contextualChat: (params: Record<string, unknown>) => Promise<ContextualChatResponse>,
   scopes: string[] = [],
 ): ApiClient {
-  async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  async function request<T>(path: string, options: RequestInit = {}, retryUnauthorized = true): Promise<T> {
+    const token = await getToken();
     const response = await fetch(path, {
       ...options,
       headers: {
@@ -85,6 +86,17 @@ export function createApiClient(
         ...options.headers,
       },
     });
+
+    // App tokens expire after an hour, which is well inside a study session.
+    // A 401 means ours is spent (or was revoked): ask the host for a fresh one
+    // and replay the call once, so the student never sees the gap. Passing the
+    // rejected token keeps a late 401 from re-minting one someone else already
+    // replaced. `options.body` is always a string here, so it is safe to resend.
+    if (response.status === 401 && retryUnauthorized) {
+      await getToken(token);
+      return request<T>(path, options, false);
+    }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: response.statusText }));
       throw new Error(error.message || `Request failed: ${response.status}`);
