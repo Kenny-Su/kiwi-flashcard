@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { AppRequestContext } from '../auth/app-token.types';
 import { SqliteService } from '../database/sqlite.service';
 import { HttpError } from '../http-error';
-import type { CreateCardDto, CreateCardLinkDto, CreateCardLinksDto, CreateCardsDto, CreateDeckDto, ExplainCardLinkDto, GenerateCardsDto, RecordReviewDto, ReorderDeckCardsDto, StartSessionDto, SuggestCardLinksDto, UpdateCardDto, UpdateCardLinkDto, UpdateDeckDto } from './dto';
+import type { CreateCardDto, CreateCardLinkDto, CreateCardLinksDto, CreateCardsDto, CreateDeckDto, ExplainCardLinkDto, GenerateCardsDto, GenerateCardsFromMaterialsDto, RecordReviewDto, ReorderDeckCardsDto, StartSessionDto, SuggestCardLinksDto, UpdateCardDto, UpdateCardLinkDto, UpdateDeckDto } from './dto';
 import { KiwiMcpService } from './kiwi-mcp.service';
+import { KiwiMaterialsService } from './kiwi-materials.service';
 
 type Row = Record<string, unknown>;
 
@@ -11,6 +12,7 @@ export class FlashcardService {
   constructor(
     private readonly sqlite: SqliteService,
     private readonly kiwiMcp: KiwiMcpService,
+    private readonly kiwiMaterials: KiwiMaterialsService = new KiwiMaterialsService(),
   ) {}
 
   async listCards(ctx: AppRequestContext) {
@@ -91,6 +93,21 @@ export class FlashcardService {
   async generateCards(ctx: AppRequestContext, dto: GenerateCardsDto) {
     if (dto.deckId) this.assertDeckOwned(ctx, dto.deckId);
     return this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, dto.sourceContent, dto.count ?? 3);
+  }
+
+  async listMaterials(ctx: AppRequestContext) {
+    return { documents: await this.kiwiMaterials.listDocuments(ctx) };
+  }
+
+  /**
+   * Same approved prompt as the paste-your-notes path — only the source differs:
+   * here it is the text Kiwi already parsed out of the class's own documents.
+   */
+  async generateCardsFromMaterials(ctx: AppRequestContext, dto: GenerateCardsFromMaterialsDto) {
+    if (dto.deckId) this.assertDeckOwned(ctx, dto.deckId);
+    const source = await this.kiwiMaterials.getSourceText(ctx, dto.documentIds);
+    const cards = await this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, source.text, dto.count ?? 3);
+    return { cards, documents: source.documents, truncated: source.truncated };
   }
 
   async generateMcq(ctx: AppRequestContext, id: string, numChoices = 4) {

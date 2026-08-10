@@ -5,6 +5,7 @@ export type IconName =
   | 'alert'
   | 'arrow-left'
   | 'arrow-right'
+  | 'book'
   | 'cards'
   | 'check'
   | 'check-circle'
@@ -26,6 +27,7 @@ const paths: Record<IconName, ReactNode> = {
   alert: <><path d="M10.3 3.8 2.4 18a2 2 0 0 0 1.75 3h15.7a2 2 0 0 0 1.75-3L13.7 3.8a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></>,
   'arrow-left': <><path d="m15 18-6-6 6-6" /></>,
   'arrow-right': <><path d="m9 18 6-6-6-6" /></>,
+  book: <><path d="M7.5 3H17a2 2 0 0 1 2 2v11.5" /><rect x="3" y="7" width="12.5" height="14" rx="2" /><path d="M6.5 12h5.5M6.5 16h3.5" /></>,
   cards: <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
   check: <><path d="m5 12 4 4L19 6" /></>,
   'check-circle': <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16.5 8" /></>,

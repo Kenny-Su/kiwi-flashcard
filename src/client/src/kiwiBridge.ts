@@ -18,11 +18,13 @@ interface PendingRequest {
 interface BridgeState {
   context: KiwiContext | null;
   appToken: string | null;
+  /** Scopes Kiwi granted this app for this class; drives feature availability. */
+  scopes: string[];
   error: string | null;
 }
 
 export function useKiwiBridge() {
-  const [state, setState] = useState<BridgeState>({ context: null, appToken: null, error: null });
+  const [state, setState] = useState<BridgeState>({ context: null, appToken: null, scopes: [], error: null });
   const kiwiOrigin = useRef('*');
   const pendingRequests = useRef(new Map<string, PendingRequest>());
 
@@ -39,7 +41,11 @@ export function useKiwiBridge() {
         parent.postMessage({ type: 'kiwi:requestToken' }, event.origin);
       }
       if (type === 'kiwi:appToken') {
-        setState((prev) => ({ ...prev, appToken: payload?.accessToken || null }));
+        setState((prev) => ({
+          ...prev,
+          appToken: payload?.accessToken || null,
+          scopes: Array.isArray(payload?.scopes) ? payload.scopes : [],
+        }));
       }
       if (type === 'kiwi:apiResponse' && payload?.requestId) {
         const pending = pendingRequests.current.get(payload.requestId);

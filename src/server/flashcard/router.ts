@@ -8,6 +8,7 @@ import {
   parseCreateCards,
   parseCreateDeck,
   parseGenerateCards,
+  parseGenerateCardsFromMaterials,
   parseGenerateMcq,
   parseExplainCardLink,
   parseRecordReview,
@@ -87,6 +88,14 @@ export function createFlashcardRouter(
 
   router.post('/cards/generate', asyncHandler(async (request, response) => {
     response.json(await flashcards.generateCards(getAppContext(request), parseGenerateCards(request.body)));
+  }));
+
+  router.get('/materials', asyncHandler(async (request, response) => {
+    response.json(await flashcards.listMaterials(getAppContext(request)));
+  }));
+
+  router.post('/cards/generate-from-materials', asyncHandler(async (request, response) => {
+    response.json(await flashcards.generateCardsFromMaterials(getAppContext(request), parseGenerateCardsFromMaterials(request.body)));
   }));
 
   router.post('/cards/:id/mcq', asyncHandler(async (request, response) => {

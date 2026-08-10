@@ -4,6 +4,7 @@ import type { AppRequestContext } from '../auth/app-token.types';
 import { SqliteService } from '../database/sqlite.service';
 import { FlashcardService } from './flashcard.service';
 import { KiwiMcpService } from './kiwi-mcp.service';
+import { KiwiMaterialsService } from './kiwi-materials.service';
 
 describe('FlashcardService with SQLite', () => {
   let sqlite: SqliteService;
@@ -11,6 +12,7 @@ describe('FlashcardService with SQLite', () => {
   let generatedCards: any[];
   let suggestedLinks: any[];
   let generateCalls: any[][];
+  let materialsCalls: any[][];
   const context: AppRequestContext = {
     userId: 'user-1', classId: 'class-1', appSlug: 'flashcards', scopes: ['llm:prompt:*'], token: 'app-token',
   };
@@ -23,13 +25,28 @@ describe('FlashcardService with SQLite', () => {
     suggestCardLinks: async () => suggestedLinks,
     explainCardLink: async () => 'Transactions use WAL to preserve durable changes.',
   } as unknown as KiwiMcpService;
+  const kiwiMaterials = {
+    listDocuments: async (...args: any[]) => {
+      materialsCalls.push(['listDocuments', ...args]);
+      return [{ documentId: 'doc-1', fileName: 'week1.pdf', totalChunks: 2 }];
+    },
+    getSourceText: async (...args: any[]) => {
+      materialsCalls.push(['getSourceText', ...args]);
+      return {
+        text: '## week1.pdf\n[p. 1] Recursion calls itself.',
+        documents: [{ documentId: 'doc-1', fileName: 'week1.pdf', totalChunks: 2 }],
+        truncated: true,
+      };
+    },
+  } as unknown as KiwiMaterialsService;
 
   beforeEach(() => {
     generatedCards = [];
     suggestedLinks = [];
     generateCalls = [];
+    materialsCalls = [];
     sqlite = new SqliteService(':memory:');
-    service = new FlashcardService(sqlite, kiwiMcp);
+    service = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials);
   });
 
   afterEach(() => sqlite.close());
@@ -46,6 +63,26 @@ describe('FlashcardService with SQLite', () => {
     });
     assert.equal(updated.question, 'What does WAL mean?');
     assert.equal(updated.confidence, 4);
+  });
+
+  it('generates cards from class documents through the approved prompt', async () => {
+    generatedCards = [{ question: 'What is recursion?', answer: 'A function calling itself' }];
+
+    const result = await service.generateCardsFromMaterials(context, { documentIds: ['doc-1'], count: 3 });
+
+    assert.deepEqual(materialsCalls[0], ['getSourceText', context, ['doc-1']]);
+    assert.deepEqual(generateCalls[0], ['app-token', 'flashcards', '## week1.pdf\n[p. 1] Recursion calls itself.', 3]);
+    assert.deepEqual(result.cards, generatedCards);
+    assert.deepEqual(result.documents, [{ documentId: 'doc-1', fileName: 'week1.pdf', totalChunks: 2 }]);
+    assert.equal(result.truncated, true);
+  });
+
+  it('rejects a material generation aimed at another student\'s deck', async () => {
+    await assert.rejects(
+      () => service.generateCardsFromMaterials({ ...context, userId: 'user-2' }, { documentIds: ['doc-1'], deckId: 'deck-x' }),
+      (error: any) => error.status === 404,
+    );
+    assert.equal(materialsCalls.length, 0, 'ownership is checked before any Kiwi call');
   });
 
   it('isolates cards by user and class', async () => {

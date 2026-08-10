@@ -34,6 +34,12 @@ export interface GenerateCardsDto {
   materialType?: string;
 }
 
+export interface GenerateCardsFromMaterialsDto {
+  documentIds: string[];
+  count?: CardGenerationCount;
+  deckId?: string;
+}
+
 export interface CreateDeckDto {
   name: string;
   description?: string;
@@ -192,6 +198,21 @@ export function parseGenerateCards(value: unknown): GenerateCardsDto {
     pdfId: optionalString(input, 'pdfId'),
     pageNumber: optionalInteger(input, 'pageNumber', 1),
     materialType: optionalString(input, 'materialType'),
+  };
+}
+
+export function parseGenerateCardsFromMaterials(value: unknown): GenerateCardsFromMaterialsDto {
+  const input = object(value);
+  const documentIds = optionalStringArray(input, 'documentIds');
+  // Kiwi caps documentIds at 50 per request; rejecting here keeps the error on
+  // this side of the network with a message a student can act on.
+  if (!documentIds || documentIds.length === 0 || documentIds.length > 50) {
+    throw new ValidationError('documentIds must contain between 1 and 50 class document IDs');
+  }
+  return {
+    documentIds,
+    count: optionalGenerationCount(input, 'count'),
+    deckId: optionalString(input, 'deckId'),
   };
 }
 

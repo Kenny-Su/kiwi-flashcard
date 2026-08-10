@@ -6,12 +6,14 @@ import { AppTokenVerifier } from './auth/app-token.guard';
 import { SqliteService } from './database/sqlite.service';
 import { FlashcardService } from './flashcard/flashcard.service';
 import { KiwiMcpService } from './flashcard/kiwi-mcp.service';
+import { KiwiMaterialsService } from './flashcard/kiwi-materials.service';
 import { createFlashcardRouter } from './flashcard/router';
 import { HttpError } from './http-error';
 
 export interface AppDependencies {
   sqlite?: SqliteService;
   kiwiMcp?: KiwiMcpService;
+  kiwiMaterials?: KiwiMaterialsService;
   tokenVerifier?: AppTokenVerifier;
   clientDir?: string;
 }
@@ -20,8 +22,9 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   const app = express();
   const sqlite = dependencies.sqlite || new SqliteService();
   const kiwiMcp = dependencies.kiwiMcp || new KiwiMcpService();
+  const kiwiMaterials = dependencies.kiwiMaterials || new KiwiMaterialsService();
   const tokenVerifier = dependencies.tokenVerifier || new AppTokenVerifier();
-  const flashcards = new FlashcardService(sqlite, kiwiMcp);
+  const flashcards = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials);
   const origins = (process.env.CORS_ORIGINS || '*')
     .split(',')
     .map((origin) => origin.trim())

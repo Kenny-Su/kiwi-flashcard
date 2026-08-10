@@ -191,6 +191,12 @@ p {
   opacity: 0.48;
 }
 
+.button--small {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 0.79rem;
+}
+
 .button--primary {
   color: #fff;
   background: var(--primary);
@@ -1015,6 +1021,67 @@ button.chip:hover {
   font-weight: 760;
   letter-spacing: 0.09em;
   text-transform: uppercase;
+}
+
+/* An option the class has not enabled yet: still discoverable, visibly not ready. */
+.creation-method-card--muted {
+  background: var(--surface-soft);
+  border-style: dashed;
+}
+
+.creation-method-card--muted .creation-method-card__meta {
+  color: var(--muted);
+}
+
+.materials-picker {
+  padding: 0;
+  border: 0;
+  margin: 0 0 4px;
+}
+
+.materials-picker__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.materials-picker__list {
+  display: grid;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.materials-picker__row {
+  align-items: center;
+  gap: 10px;
+}
+
+.materials-picker__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.87rem;
+}
+
+.materials-picker__meta {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.materials-picker__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .context-generation {

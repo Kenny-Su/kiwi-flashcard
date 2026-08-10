@@ -1,10 +1,10 @@
 import { useEffect, useId, useState, type FormEvent, type KeyboardEvent } from 'react';
-import type { ApiClient, CardGenerationCount, GeneratedCardDraft } from '../api';
+import type { ApiClient, CardGenerationCount, GeneratedCardDraft, MaterialDocument } from '../api';
 import type { Deck } from '../types';
 import { Icon, Modal, Notice, Spinner } from './ui';
 
 type PreviewCard = GeneratedCardDraft & { id: string };
-type CreationMethod = 'choose' | 'prompt' | 'context' | 'manual';
+type CreationMethod = 'choose' | 'prompt' | 'materials' | 'context' | 'manual';
 const GENERATION_COUNTS: CardGenerationCount[] = ['auto', 3, 5, 10];
 
 export default function FlashcardCreationModal({ open, decks, defaultDeckId, onClose, api, onCreated }: { open: boolean; decks: Deck[]; defaultDeckId?: string; onClose: () => void; api: ApiClient; onCreated: () => Promise<void> }) {
@@ -21,7 +21,13 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
   const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [materials, setMaterials] = useState<MaterialDocument[] | null>(null);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
+  const [documentIds, setDocumentIds] = useState<string[]>([]);
+  const [truncationNotice, setTruncationNotice] = useState<string | null>(null);
   const formId = useId();
+
+  const selectedDocuments = (materials || []).filter((document) => documentIds.includes(document.documentId));
 
   const reset = () => {
     setMethod('choose');
@@ -35,6 +41,8 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     setDrafts([]);
     setPreviewOpen(false);
     setError(null);
+    setDocumentIds([]);
+    setTruncationNotice(null);
   };
 
   const close = () => {
@@ -90,6 +98,43 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
     }
   };
 
+  const loadMaterials = async () => {
+    setMaterialsLoading(true);
+    setError(null);
+    try {
+      setMaterials(await api.listMaterials());
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load class materials.');
+    } finally {
+      setMaterialsLoading(false);
+    }
+  };
+
+  const generateFromMaterials = async () => {
+    if (documentIds.length === 0) {
+      setError('Select at least one class document.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await api.generateCardsFromMaterials({ documentIds, count: generationCount, deckId: deckIds[0] });
+      if (result.cards.length === 0) {
+        setError('No usable flashcards came back. Try selecting a different document.');
+        return;
+      }
+      setTruncationNotice(result.truncated
+        ? 'These documents hold more text than one pass can cover, so Kiwi used the beginning. Generate again from a single document for deeper coverage.'
+        : null);
+      setDrafts(result.cards.map((card, index) => ({ ...card, id: `material-${Date.now()}-${index}` })));
+      setPreviewOpen(true);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to generate cards from class materials.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const generateFromLearningContext = async () => {
     setBusy(true);
     setError(null);
@@ -124,7 +169,17 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
       await api.createCards(drafts.map((card) => ({
         question: card.question.trim(),
         answer: card.answer.trim(),
-        sourceContent: method === 'context' ? contextFocus.trim() : sourceContent.trim(),
+        sourceContent: method === 'context'
+          ? contextFocus.trim()
+          : method === 'materials'
+            ? selectedDocuments.map((document) => document.fileName).join(', ')
+            : sourceContent.trim(),
+        // Provenance for cards built from class documents; a single-document
+        // selection can point at the exact file it came from.
+        ...(method === 'materials' ? {
+          materialType: 'class-material',
+          ...(selectedDocuments.length === 1 ? { pdfId: selectedDocuments[0].documentId } : {}),
+        } : {}),
         deckIds,
       })));
       reset();
@@ -162,6 +217,9 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
   const chooseMethod = (nextMethod: Exclude<CreationMethod, 'choose'>) => {
     setMethod(nextMethod);
     setError(null);
+    if (nextMethod === 'materials' && api.canReadMaterials && materials === null && !materialsLoading) {
+      void loadMaterials();
+    }
   };
 
   const backToMethods = () => {
@@ -203,6 +261,7 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
   );
 
   const generateButtonLabel = generationCount === 'auto' ? 'Generate cards' : `Generate ${generationCount} cards`;
+  const materialsUnavailable = method === 'materials' && !api.canReadMaterials;
 
   const title = previewOpen
     ? 'Review generated cards'
@@ -212,7 +271,9 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
         ? 'Write a flashcard'
         : method === 'context'
           ? 'Generate from chat history'
-          : 'Generate from your notes';
+          : method === 'materials'
+            ? 'Generate from class materials'
+            : 'Generate from your notes';
 
   return (
     <Modal
@@ -240,14 +301,22 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               Create card
             </button>
           </>
+        ) : materialsUnavailable ? (
+          <button className="button button--ghost" type="button" onClick={backToMethods}><Icon name="arrow-left" /> Back</button>
         ) : (
           <>
             <button className="button button--ghost" type="button" disabled={busy} onClick={backToMethods}><Icon name="arrow-left" /> Back</button>
             <button
               className="button button--primary"
               type="button"
-              disabled={busy || (method === 'prompt' && !sourceContent.trim())}
-              onClick={() => void (method === 'context' ? generateFromLearningContext() : generate())}
+              disabled={busy
+                || (method === 'prompt' && !sourceContent.trim())
+                || (method === 'materials' && (materialsLoading || documentIds.length === 0))}
+              onClick={() => void (method === 'context'
+                ? generateFromLearningContext()
+                : method === 'materials'
+                  ? generateFromMaterials()
+                  : generate())}
             >
               {busy ? <Spinner label="Generating cards" size="small" /> : <Icon name="sparkles" />}
               {generateButtonLabel}
@@ -261,6 +330,8 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
       {previewOpen ? (
         <section className="generation-preview" aria-busy={busy}>
           <p className="generation-preview__intro">Nothing is saved yet. Refine the drafts below and remove anything you do not want in your library.</p>
+
+          {truncationNotice && <Notice tone="info" onClose={() => setTruncationNotice(null)}>{truncationNotice}</Notice>}
 
           {drafts.length === 0 ? (
             <div className="generation-preview__empty">All generated cards were removed. Return to the source and generate another set.</div>
@@ -291,10 +362,21 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
         <section className="creation-methods" aria-label="Flashcard creation methods">
           <p className="creation-methods__intro">Choose a starting point. You can review and edit anything Kiwi generates before it is saved.</p>
           <div className="creation-methods__grid">
-            <button className="creation-method-card creation-method-card--recommended" type="button" onClick={() => chooseMethod('prompt')}>
+            {api.canReadMaterials && (
+              <button className="creation-method-card creation-method-card--recommended" type="button" onClick={() => chooseMethod('materials')}>
+                <span className="creation-method-card__icon"><Icon name="book" size={22} /></span>
+                <span className="creation-method-card__copy">
+                  <span className="creation-method-card__meta">Recommended</span>
+                  <strong>Generate from class materials</strong>
+                  <span>Build cards straight from this class's lecture slides and readings.</span>
+                </span>
+                <Icon name="arrow-right" />
+              </button>
+            )}
+            <button className={`creation-method-card${api.canReadMaterials ? '' : ' creation-method-card--recommended'}`} type="button" onClick={() => chooseMethod('prompt')}>
               <span className="creation-method-card__icon"><Icon name="sparkles" size={22} /></span>
               <span className="creation-method-card__copy">
-                <span className="creation-method-card__meta">Recommended</span>
+                {!api.canReadMaterials && <span className="creation-method-card__meta">Recommended</span>}
                 <strong>Generate from notes</strong>
                 <span>Paste a passage, topic, or class notes and create a focused set of cards.</span>
               </span>
@@ -316,6 +398,17 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
               </span>
               <Icon name="arrow-right" />
             </button>
+            {!api.canReadMaterials && (
+              <button className="creation-method-card creation-method-card--muted" type="button" onClick={() => chooseMethod('materials')}>
+                <span className="creation-method-card__icon"><Icon name="book" size={22} /></span>
+                <span className="creation-method-card__copy">
+                  <span className="creation-method-card__meta">Needs setup</span>
+                  <strong>Generate from class materials</strong>
+                  <span>Build cards from lecture slides and readings, once this class allows it.</span>
+                </span>
+                <Icon name="arrow-right" />
+              </button>
+            )}
           </div>
         </section>
       ) : method === 'prompt' ? (
@@ -340,6 +433,65 @@ export default function FlashcardCreationModal({ open, decks, defaultDeckId, onC
           </label>
           {generationCountChoice}
           {deckChoices}
+        </section>
+      ) : method === 'materials' ? (
+        <section className="creation-pane creation-pane--focused" aria-busy={busy || materialsLoading}>
+          <div className="section-heading">
+            <span className="section-heading__icon"><Icon name="book" /></span>
+            <div>
+              <h3>Pick the material to study</h3>
+              <p>Kiwi reads the text it already parsed from this class's documents — nothing to paste.</p>
+            </div>
+          </div>
+
+          {!api.canReadMaterials ? (
+            <Notice tone="info">
+              This class has not enabled class-material access for Flashcards yet. If an admin has just turned it on,
+              reload this page to pick up the change.
+            </Notice>
+          ) : materialsLoading ? (
+            <div className="materials-picker__loading"><Spinner label="Loading class materials" /> Loading class materials…</div>
+          ) : !materials || materials.length === 0 ? (
+            <Notice tone="info">
+              No readable class documents yet. They appear here once your instructor uploads material and Kiwi finishes
+              processing it.
+            </Notice>
+          ) : (
+            <fieldset className="field materials-picker">
+              <legend className="field__label">
+                Documents
+                <small>{documentIds.length > 0 ? `${documentIds.length} selected` : 'select at least one'}</small>
+              </legend>
+              <div className="materials-picker__actions">
+                <button type="button" className="button button--ghost button--small" disabled={busy} onClick={() => setDocumentIds(materials.map((document) => document.documentId))}>Select all</button>
+                <button type="button" className="button button--ghost button--small" disabled={busy || documentIds.length === 0} onClick={() => setDocumentIds([])}>Clear</button>
+              </div>
+              <div className="materials-picker__list">
+                {materials.map((document) => (
+                  <label className="check-row materials-picker__row" key={document.documentId}>
+                    <input
+                      type="checkbox"
+                      checked={documentIds.includes(document.documentId)}
+                      disabled={busy}
+                      onChange={() => setDocumentIds((previous) => previous.includes(document.documentId)
+                        ? previous.filter((id) => id !== document.documentId)
+                        : [...previous, document.documentId])}
+                    />
+                    <span className="materials-picker__name">{document.fileName}</span>
+                    <span className="materials-picker__meta">{document.totalChunks} {document.totalChunks === 1 ? 'section' : 'sections'}</span>
+                  </label>
+                ))}
+              </div>
+              <span className="field-help">Picking one document at a time gives the most focused cards.</span>
+            </fieldset>
+          )}
+
+          {api.canReadMaterials && materials && materials.length > 0 && (
+            <>
+              {generationCountChoice}
+              {deckChoices}
+            </>
+          )}
         </section>
       ) : method === 'context' ? (
         <section className="creation-pane creation-pane--focused" aria-busy={busy}>

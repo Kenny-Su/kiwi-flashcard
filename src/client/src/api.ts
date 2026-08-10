@@ -13,9 +13,34 @@ export type AcceptedCardDraft = GeneratedCardDraft & {
   deckId?: string;
   deckIds?: string[];
   tags?: string[];
+  pdfId?: string;
+  materialType?: string;
 };
 
+export interface MaterialDocument {
+  documentId: string;
+  fileName: string;
+  totalChunks: number;
+}
+
+export interface MaterialGeneration {
+  cards: GeneratedCardDraft[];
+  documents: MaterialDocument[];
+  /** True when the documents held more text than one generation pass can use. */
+  truncated: boolean;
+}
+
+/** Kiwi scope that lets this app read the class's parsed document text. */
+export const MATERIALS_SCOPE = 'class:materials:chunks:read';
+
 export interface ApiClient {
+  /**
+   * Whether Kiwi granted class-material access for this class. Checked from the
+   * token's own scopes so the UI can explain the gap instead of failing a call.
+   */
+  canReadMaterials: boolean;
+  listMaterials(): Promise<MaterialDocument[]>;
+  generateCardsFromMaterials(input: { documentIds: string[]; count: CardGenerationCount; deckId?: string }): Promise<MaterialGeneration>;
   listCards(): Promise<Card[]>;
   searchCards(q: string): Promise<Card[]>;
   createCard(input: Partial<Card> & { question: string; answer: string }): Promise<Card>;
@@ -49,6 +74,7 @@ export function createApiClient(
   token: string,
   classId: string,
   contextualChat: (params: Record<string, unknown>) => Promise<ContextualChatResponse>,
+  scopes: string[] = [],
 ): ApiClient {
   async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const response = await fetch(path, {
@@ -68,7 +94,17 @@ export function createApiClient(
   }
 
   const classQuery = `classId=${encodeURIComponent(classId)}`;
+  // Mirrors Kiwi's wildcard-aware scope match, so a `class:materials:*` grant counts.
+  const canReadMaterials = scopes.some((scope) => scope === MATERIALS_SCOPE
+    || (scope.endsWith(':*') && MATERIALS_SCOPE.startsWith(scope.slice(0, -1))));
+
   return {
+    canReadMaterials,
+    listMaterials: async () => (await request<{ documents: MaterialDocument[] }>(`/api/materials?${classQuery}`)).documents,
+    generateCardsFromMaterials: (input) => request('/api/cards/generate-from-materials', {
+      method: 'POST',
+      body: JSON.stringify({ ...input, classId }),
+    }),
     listCards: () => request(`/api/cards?${classQuery}`),
     searchCards: (q) => request(`/api/cards/search?${classQuery}&q=${encodeURIComponent(q)}`),
     createCard: (input) => request('/api/cards', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
