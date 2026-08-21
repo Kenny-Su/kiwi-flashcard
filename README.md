@@ -26,9 +26,11 @@ npm run register
 3. Include `context:student_learning:read` and `class:materials:chunks:read` in the app's max and enabled scopes, then approve the app's prompts in Kiwi admin. The flashcard creator uses Kiwi's host-proxied `contextualChat` operation, so private learning context stays inside Kiwi and only generated card drafts reach this app.
 4. Enable the app for a class.
 
-The registration also adds a class-scoped **Flashcard Manager** admin surface for
-instructors, TAs, and administrators. On current Kiwi UI builds it contributes
-Overview, Decks, and Card library entries to the host admin sidebar.
+The registration also adds a **Flashcard Manager** admin surface. Kiwi discovers
+it through the global admin-panel registration, then opens it with the selected
+class's scope. A class-admin-panel registration is retained for class-local
+routes. On current Kiwi UI builds the app contributes Overview, Decks, and Card
+library entries to the host admin sidebar.
 
 ## Class Materials Scope
 

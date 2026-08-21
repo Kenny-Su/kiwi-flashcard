@@ -1,5 +1,6 @@
 export interface KiwiContext {
-  classId: string;
+  /** Omitted when a system administrator first opens a global admin panel. */
+  classId?: string;
   className?: string;
   userId: string;
   username?: string;

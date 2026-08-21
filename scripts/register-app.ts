@@ -26,6 +26,19 @@ const payload = {
       tabOrder: 0,
     },
     {
+      // Kiwi's admin sidebar discovers apps through an `admin-panel` UI. Once
+      // opened with a selected class, the host still mints a class-scoped token
+      // and supplies classId to this same URL.
+      uiSlug: 'admin',
+      uiName: 'Flashcard Manager',
+      uiUrl: `${appUrl}/admin`,
+      placement: 'admin-panel',
+      allowedRoles: ['instructor', 'admin'],
+      tabOrder: 0,
+    },
+    {
+      // Compatibility surface for Kiwi routes that enumerate class-local
+      // panels directly instead of entering through the global admin sidebar.
       uiSlug: 'class-admin',
       uiName: 'Flashcard Manager',
       uiUrl: `${appUrl}/admin`,

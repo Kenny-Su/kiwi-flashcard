@@ -12,6 +12,9 @@ export default function App() {
   // hourly refresh must not rebuild it and remount the app mid-session.
   const hasToken = appToken !== null;
   const scopeKey = scopes.join(' ');
+  const adminSurface = context?.placement === 'class-admin-panel'
+    || context?.placement === 'admin-panel'
+    || window.location.pathname.startsWith('/admin');
   const api = useMemo(() => {
     if (!context?.classId || !hasToken) return null;
     return createApiClient(getToken, context.classId, contextualChat, scopeKey ? scopeKey.split(' ') : []);
@@ -21,14 +24,30 @@ export default function App() {
     return <Loading message="Waiting for Kiwi class context..." detail={error} />;
   }
 
+  if (adminSurface && !context.classId) {
+    return <SelectClass />;
+  }
+
   if (!appToken || !api) {
     return <Loading message="Requesting scoped app token..." detail={error} />;
   }
 
-  const adminSurface = context.placement === 'class-admin-panel' || window.location.pathname.startsWith('/admin');
   return adminSurface
     ? <AdminInterface api={api} className={context.className} view={adminView} onNavigate={setAdminNavigation} />
     : <FlashcardManager api={api} className={context.className} />;
+}
+
+function SelectClass() {
+  return (
+    <main className="bridge-state">
+      <div>
+        <div className="bridge-state__mark"><Icon name="cards" size={27} /></div>
+        <h1>Select a class</h1>
+        <p>Choose a class from Kiwi’s admin class selector to manage its flashcard resources.</p>
+        <Notice>The Flashcard Manager requires class scope. Its data and permissions are isolated per class.</Notice>
+      </div>
+    </main>
+  );
 }
 
 function Loading({ message, detail }: { message: string; detail?: string | null }) {
