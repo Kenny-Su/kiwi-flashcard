@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { createApiClient } from './api';
 import { useKiwiBridge } from './kiwiBridge';
 import FlashcardManager from './components/FlashcardManager';
+import AdminInterface from './components/AdminInterface';
 import { Icon, Notice, Spinner } from './components/ui';
 
 export default function App() {
-  const { context, appToken, scopes, error, contextualChat, getToken } = useKiwiBridge();
+  const { context, appToken, scopes, error, adminView, setAdminNavigation, contextualChat, getToken } = useKiwiBridge();
   // Keyed on whether we have a token and on the scope list, not on the token
   // value: the client reads the token through getToken on every call, so an
   // hourly refresh must not rebuild it and remount the app mid-session.
@@ -24,7 +25,10 @@ export default function App() {
     return <Loading message="Requesting scoped app token..." detail={error} />;
   }
 
-  return <FlashcardManager api={api} className={context.className} />;
+  const adminSurface = context.placement === 'class-admin-panel' || window.location.pathname.startsWith('/admin');
+  return adminSurface
+    ? <AdminInterface api={api} className={context.className} view={adminView} onNavigate={setAdminNavigation} />
+    : <FlashcardManager api={api} className={context.className} />;
 }
 
 function Loading({ message, detail }: { message: string; detail?: string | null }) {

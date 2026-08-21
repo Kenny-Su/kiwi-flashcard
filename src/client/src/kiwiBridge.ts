@@ -32,6 +32,20 @@ interface BridgeState {
   error: string | null;
 }
 
+export type AdminView = 'overview' | 'decks' | 'cards';
+
+const ADMIN_NAVIGATION = [
+  { id: 'overview', label: 'Overview', path: '/overview' },
+  { id: 'decks', label: 'Decks', path: '/decks' },
+  { id: 'cards', label: 'Card library', path: '/cards' },
+] as const;
+
+function adminViewFromPath(path: unknown): AdminView | null {
+  if (typeof path !== 'string') return null;
+  const segment = path.replace(/^\/+|\/+$/g, '');
+  return segment === 'overview' || segment === 'decks' || segment === 'cards' ? segment : null;
+}
+
 export function useKiwiBridge() {
   const [state, setState] = useState<BridgeState>({ context: null, appToken: null, scopes: [], error: null });
   const kiwiOrigin = useRef('*');
@@ -41,6 +55,7 @@ export function useKiwiBridge() {
   const tokenRef = useRef<string | null>(null);
   const tokenWaiters = useRef<TokenWaiter[]>([]);
   const tokenInflight = useRef<Promise<string> | null>(null);
+  const [adminView, setAdminView] = useState<AdminView>('overview');
 
   useEffect(() => {
     const parent = window.parent || window;
@@ -81,6 +96,10 @@ export function useKiwiBridge() {
           code: payload.error?.code,
           status: payload.status,
         }));
+      }
+      if (type === 'kiwi:adminNavigate') {
+        const nextView = adminViewFromPath(payload?.path);
+        if (nextView) setAdminView(nextView);
       }
     };
 
@@ -178,5 +197,22 @@ export function useKiwiBridge() {
     });
   }, []);
 
-  return { ...state, contextualChat, getToken };
+  const setAdminNavigation = useCallback((view: AdminView) => {
+    setAdminView(view);
+    if (window.parent === window || kiwiOrigin.current === '*') return;
+    window.parent.postMessage({
+      type: 'kiwi:adminNavigation',
+      payload: { items: ADMIN_NAVIGATION, activePath: `/${view}` },
+    }, kiwiOrigin.current);
+  }, []);
+
+  useEffect(() => {
+    // Kiwi's current class-admin host still reports the generic
+    // `admin-panel` placement in its context payload. The dedicated entry URL
+    // is therefore the stable discriminator until that host field is narrowed.
+    if (state.context?.placement !== 'class-admin-panel' && !window.location.pathname.startsWith('/admin')) return;
+    setAdminNavigation(adminView);
+  }, [adminView, setAdminNavigation, state.context?.placement]);
+
+  return { ...state, adminView, setAdminNavigation, contextualChat, getToken };
 }

@@ -6,6 +6,7 @@ export interface KiwiContext {
   userRole?: string;
   appId?: string;
   appSlug?: string;
+  placement?: 'class-tab' | 'class-admin-panel' | 'admin-panel' | string;
 }
 
 export interface Card {

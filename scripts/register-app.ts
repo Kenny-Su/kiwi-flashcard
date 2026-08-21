@@ -25,6 +25,14 @@ const payload = {
       allowedRoles: ['student', 'ta', 'instructor'],
       tabOrder: 0,
     },
+    {
+      uiSlug: 'class-admin',
+      uiName: 'Flashcard Manager',
+      uiUrl: `${appUrl}/admin`,
+      placement: 'class-admin-panel',
+      allowedRoles: ['instructor', 'ta', 'admin'],
+      tabOrder: 0,
+    },
   ],
   prompts: [
     {

@@ -43,6 +43,7 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   if (existsSync(clientDir)) {
     app.use(express.static(clientDir));
     app.use('/student', express.static(clientDir));
+    app.use('/admin', express.static(clientDir));
   }
 
   app.use('/api', (_request, response) => {
