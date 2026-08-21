@@ -112,6 +112,14 @@ export class FlashcardService {
     return { cards, documents: source.documents, truncated: source.truncated };
   }
 
+  async generateClassCardsFromMaterials(ctx: AppRequestContext, deckId: string, dto: GenerateCardsFromMaterialsDto) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassDeck(ctx, deckId);
+    const source = await this.kiwiMaterials.getSourceText(ctx, dto.documentIds);
+    const cards = await this.kiwiMcp.generateCards(ctx.token, ctx.appSlug, source.text, dto.count ?? 3);
+    return { cards, documents: source.documents, truncated: source.truncated };
+  }
+
   async generateMcq(ctx: AppRequestContext, id: string, numChoices = 4) {
     const card = this.assertCardReadable(ctx, id);
     return this.kiwiMcp.generateMcq(ctx.token, ctx.appSlug, card, numChoices);
@@ -274,6 +282,16 @@ export class FlashcardService {
       this.addMembership(dto.deckId, card.id);
       return this.getCard(card.id)!;
     });
+  }
+
+  async createClassCards(ctx: AppRequestContext, deckId: string, dto: CreateCardsDto) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassDeck(ctx, deckId);
+    return this.sqlite.transaction(() => dto.cards.map((input) => {
+      const card = this.insertCard(ctx, input, 'class');
+      this.addMembership(deckId, card.id);
+      return this.getCard(card.id)!;
+    }));
   }
 
   async updateClassCard(ctx: AppRequestContext, id: string, dto: UpdateCardDto) {

@@ -63,6 +63,8 @@ export interface ApiClient {
   createClassDeck(input: { name: string; description?: string }): Promise<Deck>;
   updateClassDeck(id: string, input: { name?: string; description?: string | null }): Promise<Deck>;
   deleteClassDeck(id: string): Promise<void>;
+  generateClassCardsFromMaterials(deckId: string, input: { documentIds: string[]; count: CardGenerationCount }): Promise<MaterialGeneration>;
+  createClassCards(deckId: string, cards: AcceptedCardDraft[]): Promise<Card[]>;
   createClassCard(input: { deckId: string; question: string; answer: string; concepts?: string[]; tags?: string[] }): Promise<Card>;
   updateClassCard(id: string, input: { question: string; answer: string; concepts?: string[]; tags?: string[] }): Promise<Card>;
   deleteClassCard(id: string): Promise<void>;
@@ -193,6 +195,8 @@ export function createApiClient(
     createClassDeck: (input) => request('/api/class-decks', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
     updateClassDeck: (id, input) => request(`/api/class-decks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
     deleteClassDeck: async (id) => { await request(`/api/class-decks/${id}`, { method: 'DELETE' }); },
+    generateClassCardsFromMaterials: (deckId, input) => request(`/api/class-decks/${deckId}/generate-from-materials`, { method: 'POST', body: JSON.stringify(input) }),
+    createClassCards: (deckId, cards) => request(`/api/class-decks/${deckId}/cards/batch`, { method: 'POST', body: JSON.stringify({ cards }) }),
     createClassCard: (input) => request('/api/class-cards', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
     updateClassCard: (id, input) => request(`/api/class-cards/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
     deleteClassCard: async (id) => { await request(`/api/class-cards/${id}`, { method: 'DELETE' }); },

@@ -157,6 +157,14 @@ export function createFlashcardRouter(
     response.json(await flashcards.deleteClassDeck(getAppContext(request), request.params.deckId));
   }));
 
+  router.post('/class-decks/:deckId/generate-from-materials', asyncHandler(async (request, response) => {
+    response.json(await flashcards.generateClassCardsFromMaterials(getAppContext(request), request.params.deckId, parseGenerateCardsFromMaterials(request.body)));
+  }));
+
+  router.post('/class-decks/:deckId/cards/batch', asyncHandler(async (request, response) => {
+    response.status(201).json(await flashcards.createClassCards(getAppContext(request), request.params.deckId, parseCreateCards(request.body)));
+  }));
+
   router.post('/class-cards', asyncHandler(async (request, response) => {
     response.status(201).json(await flashcards.createClassCard(getAppContext(request), parseCreateClassCard(request.body)));
   }));

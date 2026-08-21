@@ -309,6 +309,22 @@ describe('FlashcardService with SQLite', () => {
     assert.equal((await service.listClassDecks(context))[0].cards[0].reviewCount, 1);
   });
 
+  it('generates editable drafts from class materials and batch-publishes accepted cards', async () => {
+    generatedCards = [{ question: 'What is recursion?', answer: 'A function calling itself' }];
+    const deck = await service.createClassDeck(context, { name: 'Official Review' });
+
+    const result = await service.generateClassCardsFromMaterials(context, deck.id, { documentIds: ['doc-1'], count: 3 });
+    assert.deepEqual(result.cards, generatedCards);
+    assert.equal((await service.listClassDecks(context))[0].cards.length, 0, 'generation only creates drafts');
+
+    const published = await service.createClassCards(context, deck.id, { cards: [{
+      ...generatedCards[0], materialType: 'class-material', pdfId: 'doc-1', sourceContent: 'week1.pdf',
+    }] });
+    assert.equal(published[0].visibility, 'class');
+    assert.equal(published[0].materialType, 'class-material');
+    assert.equal((await service.listClassDecks({ ...context, userId: 'student-2' }))[0].cards.length, 1);
+  });
+
   it('rejects class-deck writes when Kiwi does not confirm an instructor role', async () => {
     const deniedPermissions = {
       requireClassManager: async () => { throw new Error('Only class instructors and administrators can manage class decks'); },

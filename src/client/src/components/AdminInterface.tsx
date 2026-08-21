@@ -3,6 +3,7 @@ import type { ApiClient } from '../api';
 import type { AdminView } from '../kiwiBridge';
 import type { Card, Deck } from '../types';
 import { Icon, Modal, Notice, Spinner } from './ui';
+import ClassDeckGenerationModal from './ClassDeckGenerationModal';
 
 export default function AdminInterface({ api, className, view, onNavigate }: {
   api: ApiClient;
@@ -20,6 +21,7 @@ export default function AdminInterface({ api, className, view, onNavigate }: {
   const [deleteCard, setDeleteCard] = useState<Card | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const [generateDeck, setGenerateDeck] = useState<Deck | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -71,11 +73,12 @@ export default function AdminInterface({ api, className, view, onNavigate }: {
     {error && <Notice tone="error" onClose={() => setError(null)}>{error}</Notice>}
     {loading ? <div className="loading-state"><Spinner label="Loading manager" /></div> : <>
       {view === 'overview' && <Overview decks={decks} cards={cards} onNavigate={onNavigate} />}
-      {view === 'decks' && <Decks decks={decks} onCreate={() => setDeckEditor('new')} onEdit={setDeckEditor} onDelete={setDeleteDeck} />}
+      {view === 'decks' && <Decks decks={decks} onCreate={() => setDeckEditor('new')} onGenerate={setGenerateDeck} onEdit={setDeckEditor} onDelete={setDeleteDeck} />}
       {view === 'cards' && <Cards cards={filteredCards} decks={decks} query={query} onQuery={setQuery} onCreate={() => setCardEditor('new')} onEdit={setCardEditor} onDelete={setDeleteCard} />}
     </>}
     {deckEditor && <DeckEditor api={api} deck={deckEditor === 'new' ? undefined : deckEditor} busy={busy} onClose={() => setDeckEditor(null)} onSave={async (operation) => { await run(operation); setDeckEditor(null); }} />}
     {cardEditor && <ClassCardEditor api={api} decks={decks} card={cardEditor === 'new' ? undefined : cardEditor} busy={busy} onClose={() => setCardEditor(null)} onSave={async (operation) => { await run(operation); setCardEditor(null); }} />}
+    {generateDeck && <ClassDeckGenerationModal deck={generateDeck} api={api} onClose={() => setGenerateDeck(null)} onPublished={load} />}
     <ConfirmDelete open={Boolean(deleteDeck)} title="Delete deck?" detail={deleteDeck ? `“${deleteDeck.name}” will be removed. Its cards remain in the library.` : ''} busy={busy} onClose={() => setDeleteDeck(null)} onConfirm={() => void removeDeck()} />
     <ConfirmDelete open={Boolean(deleteCard)} title="Delete card everywhere?" detail={deleteCard ? `“${deleteCard.question}” will be removed from every deck, with its review history.` : ''} busy={busy} onClose={() => setDeleteCard(null)} onConfirm={() => void removeCard()} />
   </div></main>;
@@ -93,9 +96,9 @@ function Overview({ decks, cards, onNavigate }: { decks: Deck[]; cards: Card[]; 
   </>;
 }
 
-function Decks({ decks, onCreate, onEdit, onDelete }: { decks: Deck[]; onCreate: () => void; onEdit: (deck: Deck) => void; onDelete: (deck: Deck) => void }) {
+function Decks({ decks, onCreate, onGenerate, onEdit, onDelete }: { decks: Deck[]; onCreate: () => void; onGenerate: (deck: Deck) => void; onEdit: (deck: Deck) => void; onDelete: (deck: Deck) => void }) {
   return <section className="admin-section"><header><div><h2>Published decks</h2><p>Everyone enrolled in this class can study these decks.</p></div><button className="button button--primary" type="button" onClick={onCreate}><Icon name="add" /> New class deck</button></header>
-    {decks.length ? <div className="admin-table" role="table"><div className="admin-table__head" role="row"><span>Name</span><span>Cards</span><span>Last studied</span><span>Actions</span></div>{decks.map((deck) => <div className="admin-table__row" role="row" key={deck.id}><span><strong>{deck.name}</strong><small>{deck.description || 'No description'}</small></span><span>{deck.cards.length}</span><span>{deck.lastStudiedAt ? new Date(deck.lastStudiedAt).toLocaleDateString() : 'Never'}</span><span className="admin-table__actions"><button className="button button--ghost button--compact" type="button" onClick={() => onEdit(deck)}><Icon name="edit" /> Edit</button><button className="icon-button icon-button--small icon-button--danger" type="button" onClick={() => onDelete(deck)} aria-label={`Delete ${deck.name}`}><Icon name="trash" size={15} /></button></span></div>)}</div> : <Empty title="No decks yet" detail="Create the first organized study set for this class." action="Create deck" onAction={onCreate} />}
+    {decks.length ? <div className="admin-table" role="table"><div className="admin-table__head" role="row"><span>Name</span><span>Cards</span><span>Last studied</span><span>Actions</span></div>{decks.map((deck) => <div className="admin-table__row" role="row" key={deck.id}><span><strong>{deck.name}</strong><small>{deck.description || 'No description'}</small></span><span>{deck.cards.length}</span><span>{deck.lastStudiedAt ? new Date(deck.lastStudiedAt).toLocaleDateString() : 'Never'}</span><span className="admin-table__actions"><button className="button button--ghost button--compact" type="button" onClick={() => onGenerate(deck)}><Icon name="sparkles" /> Generate</button><button className="button button--ghost button--compact" type="button" onClick={() => onEdit(deck)}><Icon name="edit" /> Edit</button><button className="icon-button icon-button--small icon-button--danger" type="button" onClick={() => onDelete(deck)} aria-label={`Delete ${deck.name}`}><Icon name="trash" size={15} /></button></span></div>)}</div> : <Empty title="No decks yet" detail="Create the first organized study set for this class." action="Create deck" onAction={onCreate} />}
   </section>;
 }
 
