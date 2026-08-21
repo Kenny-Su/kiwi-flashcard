@@ -42,8 +42,15 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   const clientDir = dependencies.clientDir || join(process.cwd(), 'dist', 'client');
   if (existsSync(clientDir)) {
     app.use(express.static(clientDir));
-    app.use('/student', express.static(clientDir));
-    app.use('/admin', express.static(clientDir));
+    const sendClient = (_request: Request, response: Response) => {
+      response.sendFile(join(clientDir, 'index.html'));
+    };
+    // Serve the iframe entry points directly instead of relying on
+    // express.static's `/admin` -> `/admin/` directory redirect. Some
+    // production edges do not preserve that redirect and fall through to a
+    // plain "Cannot GET /admin" response. The wildcard also makes these URLs
+    // safe for future client-side subroutes.
+    app.get(['/student', '/student/*', '/admin', '/admin/*'], sendClient);
   }
 
   app.use('/api', (_request, response) => {
