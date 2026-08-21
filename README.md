@@ -32,6 +32,22 @@ class's scope. A class-admin-panel registration is retained for class-local
 routes. On current Kiwi UI builds the app contributes Overview, Decks, and Card
 library entries to the host admin sidebar.
 
+## Class Decks
+
+Instructors and system administrators can publish official decks from the
+Flashcard Manager. These decks and their cards are readable by every user with a
+valid Flashcards app token for that class. Students see them above their personal
+workspace and can study them directly.
+
+Class-deck mutations are authorized server-side: the Flashcards service resolves
+the app-token user and class through Kiwi's class-role endpoint and accepts only
+`professor` or `admin`. A student's personal cards, decks, and session history
+remain owner-scoped. Reviews of official cards are stored under the reviewing
+student's identity; the class deck only exposes aggregate review counts.
+
+Existing databases migrate automatically. All existing decks and cards retain
+`personal` visibility, while new published resources use `class` visibility.
+
 ## Class Materials Scope
 
 "Generate from class materials" reads the text Kiwi already parsed from a class's

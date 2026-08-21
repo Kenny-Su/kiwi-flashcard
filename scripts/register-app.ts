@@ -43,7 +43,7 @@ const payload = {
       uiName: 'Flashcard Manager',
       uiUrl: `${appUrl}/admin`,
       placement: 'class-admin-panel',
-      allowedRoles: ['instructor', 'ta', 'admin'],
+      allowedRoles: ['instructor', 'admin'],
       tabOrder: 0,
     },
   ],

@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { AppRequestContext } from '../auth/app-token.types';
+import { KiwiPermissionsService } from '../auth/kiwi-permissions.service';
 import { SqliteService } from '../database/sqlite.service';
 import { HttpError } from '../http-error';
-import type { CreateCardDto, CreateCardLinkDto, CreateCardLinksDto, CreateCardsDto, CreateDeckDto, ExplainCardLinkDto, GenerateCardsDto, GenerateCardsFromMaterialsDto, RecordReviewDto, ReorderDeckCardsDto, StartSessionDto, SuggestCardLinksDto, UpdateCardDto, UpdateCardLinkDto, UpdateDeckDto } from './dto';
+import type { CreateCardDto, CreateClassCardDto, CreateCardLinkDto, CreateCardLinksDto, CreateCardsDto, CreateDeckDto, ExplainCardLinkDto, GenerateCardsDto, GenerateCardsFromMaterialsDto, RecordReviewDto, ReorderDeckCardsDto, StartSessionDto, SuggestCardLinksDto, UpdateCardDto, UpdateCardLinkDto, UpdateDeckDto } from './dto';
 import { KiwiMcpService } from './kiwi-mcp.service';
 import { KiwiMaterialsService } from './kiwi-materials.service';
 
@@ -13,6 +14,7 @@ export class FlashcardService {
     private readonly sqlite: SqliteService,
     private readonly kiwiMcp: KiwiMcpService,
     private readonly kiwiMaterials: KiwiMaterialsService = new KiwiMaterialsService(),
+    private readonly permissions: KiwiPermissionsService = new KiwiPermissionsService(),
   ) {}
 
   async listCards(ctx: AppRequestContext) {
@@ -111,7 +113,7 @@ export class FlashcardService {
   }
 
   async generateMcq(ctx: AppRequestContext, id: string, numChoices = 4) {
-    const card = this.assertCardOwned(ctx, id);
+    const card = this.assertCardReadable(ctx, id);
     return this.kiwiMcp.generateMcq(ctx.token, ctx.appSlug, card, numChoices);
   }
 
@@ -205,7 +207,7 @@ export class FlashcardService {
 
   async listDecks(ctx: AppRequestContext) {
     const rows = this.sqlite.prepare(`
-      SELECT * FROM decks WHERE owner_user_id = ? AND class_id = ? ORDER BY created_at DESC
+      SELECT * FROM decks WHERE owner_user_id = ? AND class_id = ? AND visibility = 'personal' ORDER BY created_at DESC
     `).all(ctx.userId, ctx.classId) as Row[];
     return rows.map((row) => {
       const deck = toDeck(row);
@@ -213,6 +215,98 @@ export class FlashcardService {
         .get(ctx.userId, ctx.classId, deck.id) as Row;
       return { ...deck, cards: this.findCards(ctx, deck.id), lastStudiedAt: nullableString(last.last_studied_at) };
     });
+  }
+
+  async listClassDecks(ctx: AppRequestContext) {
+    const rows = this.sqlite.prepare("SELECT * FROM decks WHERE class_id = ? AND visibility = 'class' ORDER BY created_at DESC")
+      .all(ctx.classId) as Row[];
+    return rows.map((row) => {
+      const deck = toDeck(row);
+      const last = this.sqlite.prepare('SELECT MAX(started_at) AS last_studied_at FROM review_sessions WHERE user_id = ? AND class_id = ? AND deck_id = ?')
+        .get(ctx.userId, ctx.classId, deck.id) as Row;
+      return { ...deck, cards: this.findClassCards(ctx.classId, deck.id), lastStudiedAt: nullableString(last.last_studied_at) };
+    });
+  }
+
+  async createClassDeck(ctx: AppRequestContext, dto: CreateDeckDto) {
+    await this.permissions.requireClassManager(ctx);
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    this.sqlite.prepare(`INSERT INTO decks (id, class_id, owner_user_id, name, description, visibility, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'class', ?, ?)`)
+      .run(id, ctx.classId, ctx.userId, dto.name, dto.description ?? null, now, now);
+    return { ...toDeck(this.getDeckRow(id)), cards: [], lastStudiedAt: null };
+  }
+
+  async updateClassDeck(ctx: AppRequestContext, id: string, dto: UpdateDeckDto) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassDeck(ctx, id);
+    const fields = ['updated_at = ?'];
+    const values: unknown[] = [new Date().toISOString()];
+    if (dto.name !== undefined) { fields.push('name = ?'); values.push(dto.name); }
+    if (dto.description !== undefined) { fields.push('description = ?'); values.push(dto.description); }
+    values.push(id);
+    this.sqlite.prepare(`UPDATE decks SET ${fields.join(', ')} WHERE id = ?`).run(...values as any[]);
+    return { ...toDeck(this.getDeckRow(id)), cards: this.findClassCards(ctx.classId, id), lastStudiedAt: null };
+  }
+
+  async deleteClassDeck(ctx: AppRequestContext, id: string) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassDeck(ctx, id);
+    this.sqlite.transaction(() => {
+      const cardIds = (this.sqlite.prepare('SELECT card_id FROM deck_cards WHERE deck_id = ?').all(id) as Row[])
+        .map((row) => String(row.card_id));
+      this.sqlite.prepare('DELETE FROM decks WHERE id = ?').run(id);
+      for (const cardId of cardIds) {
+        if (!this.sqlite.prepare('SELECT 1 FROM deck_cards WHERE card_id = ? LIMIT 1').get(cardId)) {
+          this.sqlite.prepare("DELETE FROM cards WHERE id = ? AND visibility = 'class'").run(cardId);
+        }
+      }
+    });
+    return { message: 'Class deck deleted successfully' };
+  }
+
+  async createClassCard(ctx: AppRequestContext, dto: CreateClassCardDto) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassDeck(ctx, dto.deckId);
+    return this.sqlite.transaction(() => {
+      const card = this.insertCard(ctx, dto, 'class');
+      this.addMembership(dto.deckId, card.id);
+      return this.getCard(card.id)!;
+    });
+  }
+
+  async updateClassCard(ctx: AppRequestContext, id: string, dto: UpdateCardDto) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassCard(ctx, id);
+    const fields = ['question = ?', 'answer = ?', 'updated_at = ?'];
+    const values: unknown[] = [dto.question, dto.answer, new Date().toISOString()];
+    for (const [key, column] of [['concepts', 'concepts'], ['tags', 'tags']] as const) {
+      if (dto[key] !== undefined) { fields.push(`${column} = ?`); values.push(JSON.stringify(dto[key])); }
+    }
+    values.push(id);
+    this.sqlite.prepare(`UPDATE cards SET ${fields.join(', ')} WHERE id = ?`).run(...values as any[]);
+    return this.getCard(id)!;
+  }
+
+  async deleteClassCard(ctx: AppRequestContext, id: string) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassCard(ctx, id);
+    this.sqlite.prepare('DELETE FROM cards WHERE id = ?').run(id);
+    return { message: 'Class card deleted successfully' };
+  }
+
+  async reorderClassDeckCards(ctx: AppRequestContext, deckId: string, dto: ReorderDeckCardsDto) {
+    await this.permissions.requireClassManager(ctx);
+    this.assertClassDeck(ctx, deckId);
+    const current = this.findClassCards(ctx.classId, deckId).map((card) => card.id);
+    if (new Set(dto.cardIds).size !== dto.cardIds.length || dto.cardIds.length !== current.length || dto.cardIds.some((id) => !current.includes(id))) {
+      throw new HttpError(400, 'cardIds must contain every card in the class deck exactly once');
+    }
+    this.sqlite.transaction(() => dto.cardIds.forEach((cardId, position) => {
+      this.sqlite.prepare('UPDATE deck_cards SET position = ? WHERE deck_id = ? AND card_id = ?').run(position, deckId, cardId);
+    }));
+    return this.findClassCards(ctx.classId, deckId);
   }
 
   async createDeck(ctx: AppRequestContext, dto: CreateDeckDto) {
@@ -277,7 +371,7 @@ export class FlashcardService {
   }
 
   async startSession(ctx: AppRequestContext, dto: StartSessionDto) {
-    if (dto.deckId) this.assertDeckOwned(ctx, dto.deckId);
+    if (dto.deckId) this.assertDeckReadable(ctx, dto.deckId);
     const id = randomUUID();
     const startedAt = new Date().toISOString();
     this.sqlite.prepare(`
@@ -297,7 +391,7 @@ export class FlashcardService {
   }
 
   async recordReview(ctx: AppRequestContext, dto: RecordReviewDto) {
-    this.assertCardOwned(ctx, dto.cardId);
+    this.assertCardReadable(ctx, dto.cardId);
     if (dto.sessionId) this.assertSessionOwned(ctx, dto.sessionId, 403);
 
     return this.sqlite.transaction(() => {
@@ -321,23 +415,31 @@ export class FlashcardService {
     const values = deckId ? [ctx.userId, ctx.classId, deckId] : [ctx.userId, ctx.classId];
     const rows = this.sqlite.prepare(`
       SELECT cards.* FROM cards${join}
-      WHERE cards.owner_user_id = ? AND cards.class_id = ?${deckClause}
+      WHERE cards.owner_user_id = ? AND cards.class_id = ? AND cards.visibility = 'personal'${deckClause}
       ORDER BY ${order}
     `).all(...values) as Row[];
     return rows.map((row) => ({ ...toCard(row), deckIds: this.deckIdsForCard(String(row.id)) }));
   }
 
-  private insertCard(ctx: AppRequestContext, dto: CreateCardDto) {
+  private findClassCards(classId: string, deckId: string) {
+    const rows = this.sqlite.prepare(`SELECT cards.* FROM cards
+      JOIN deck_cards dc ON dc.card_id = cards.id
+      WHERE cards.class_id = ? AND cards.visibility = 'class' AND dc.deck_id = ?
+      ORDER BY dc.position ASC`).all(classId, deckId) as Row[];
+    return rows.map((row) => ({ ...toCard(row), deckIds: this.deckIdsForCard(String(row.id)) }));
+  }
+
+  private insertCard(ctx: AppRequestContext, dto: CreateCardDto, visibility: 'personal' | 'class' = 'personal') {
     const id = randomUUID();
     const now = new Date().toISOString();
     this.sqlite.prepare(`
       INSERT INTO cards (
-        id, class_id, owner_user_id, deck_id, question, answer, concepts, tags,
+        id, class_id, owner_user_id, visibility, deck_id, question, answer, concepts, tags,
         pdf_id, page_number, material_type, source_content, difficulty_rating,
         confidence, review_count, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     `).run(
-      id, ctx.classId, ctx.userId, null, dto.question, dto.answer,
+      id, ctx.classId, ctx.userId, visibility, null, dto.question, dto.answer,
       JSON.stringify(dto.concepts || []), JSON.stringify(dto.tags || []), dto.pdfId ?? null,
       dto.pageNumber ?? null, dto.materialType ?? null, dto.sourceContent ?? null,
       dto.difficultyRating ?? null, dto.confidence ?? null, now, now,
@@ -347,17 +449,41 @@ export class FlashcardService {
 
   private assertCardOwned(ctx: AppRequestContext, id: string) {
     const card = this.getCard(id);
-    if (!card || card.ownerUserId !== ctx.userId || card.classId !== ctx.classId) {
+    if (!card || card.ownerUserId !== ctx.userId || card.classId !== ctx.classId || card.visibility !== 'personal') {
       throw new HttpError(404, 'Card not found');
     }
     return card;
   }
 
+  private assertCardReadable(ctx: AppRequestContext, id: string) {
+    const card = this.getCard(id);
+    if (!card || card.classId !== ctx.classId || (card.visibility !== 'class' && card.ownerUserId !== ctx.userId)) throw new HttpError(404, 'Card not found');
+    return card;
+  }
+
+  private assertClassCard(ctx: AppRequestContext, id: string) {
+    const card = this.getCard(id);
+    if (!card || card.classId !== ctx.classId || card.visibility !== 'class') throw new HttpError(404, 'Class card not found');
+    return card;
+  }
+
   private assertDeckOwned(ctx: AppRequestContext, id: string) {
     const row = this.sqlite.prepare('SELECT * FROM decks WHERE id = ?').get(id) as Row | undefined;
-    if (!row || row.owner_user_id !== ctx.userId || row.class_id !== ctx.classId) {
+    if (!row || row.owner_user_id !== ctx.userId || row.class_id !== ctx.classId || row.visibility !== 'personal') {
       throw new HttpError(404, 'Deck not found');
     }
+    return toDeck(row);
+  }
+
+  private assertDeckReadable(ctx: AppRequestContext, id: string) {
+    const row = this.sqlite.prepare('SELECT * FROM decks WHERE id = ?').get(id) as Row | undefined;
+    if (!row || row.class_id !== ctx.classId || (row.visibility !== 'class' && row.owner_user_id !== ctx.userId)) throw new HttpError(404, 'Deck not found');
+    return toDeck(row);
+  }
+
+  private assertClassDeck(ctx: AppRequestContext, id: string) {
+    const row = this.sqlite.prepare('SELECT * FROM decks WHERE id = ?').get(id) as Row | undefined;
+    if (!row || row.class_id !== ctx.classId || row.visibility !== 'class') throw new HttpError(404, 'Class deck not found');
     return toDeck(row);
   }
 
@@ -415,6 +541,7 @@ function toCard(row: Row) {
     id: String(row.id),
     classId: String(row.class_id),
     ownerUserId: String(row.owner_user_id),
+    visibility: row.visibility === 'class' ? 'class' : 'personal',
     question: String(row.question),
     answer: String(row.answer),
     concepts: stringArray(row.concepts),
@@ -437,6 +564,7 @@ function toDeck(row: Row) {
     id: String(row.id),
     classId: String(row.class_id),
     ownerUserId: String(row.owner_user_id),
+    visibility: row.visibility === 'class' ? 'class' : 'personal',
     name: String(row.name),
     description: nullableString(row.description),
     createdAt: String(row.created_at),

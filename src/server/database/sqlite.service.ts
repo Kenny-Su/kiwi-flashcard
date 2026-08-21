@@ -14,6 +14,7 @@ const schema = `
     owner_user_id TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
+    visibility TEXT NOT NULL DEFAULT 'personal',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -22,6 +23,7 @@ const schema = `
     id TEXT PRIMARY KEY,
     class_id TEXT NOT NULL,
     owner_user_id TEXT NOT NULL,
+    visibility TEXT NOT NULL DEFAULT 'personal',
     deck_id TEXT REFERENCES decks(id) ON DELETE SET NULL,
     question TEXT NOT NULL,
     answer TEXT NOT NULL,
@@ -152,6 +154,7 @@ export class SqliteService {
       }
     }
     this.migrateRelationshipExplanations();
+    this.migrateClassDecks();
   }
 
   prepare(sql: string): StatementSync {
@@ -210,5 +213,20 @@ export class SqliteService {
       this.database.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  private migrateClassDecks() {
+    const deckColumns = this.database.prepare('PRAGMA table_info(decks)').all() as Array<Record<string, unknown>>;
+    const cardColumns = this.database.prepare('PRAGMA table_info(cards)').all() as Array<Record<string, unknown>>;
+    if (!deckColumns.some((column) => column.name === 'visibility')) {
+      this.database.exec("ALTER TABLE decks ADD COLUMN visibility TEXT NOT NULL DEFAULT 'personal'");
+    }
+    if (!cardColumns.some((column) => column.name === 'visibility')) {
+      this.database.exec("ALTER TABLE cards ADD COLUMN visibility TEXT NOT NULL DEFAULT 'personal'");
+    }
+    this.database.exec(`
+      CREATE INDEX IF NOT EXISTS decks_class_visibility_idx ON decks(class_id, visibility);
+      CREATE INDEX IF NOT EXISTS cards_class_visibility_idx ON cards(class_id, visibility);
+    `);
   }
 }

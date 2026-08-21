@@ -9,6 +9,15 @@ describe('SQLite reusable-deck migration', () => {
   const directories: string[] = [];
   afterEach(() => directories.splice(0).forEach((directory) => rmSync(directory, { recursive: true, force: true })));
 
+  it('adds personal visibility defaults for existing data', () => {
+    const sqlite = new SqliteService(':memory:');
+    sqlite.prepare('INSERT INTO decks(id, class_id, owner_user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('deck-default', 'class-1', 'user-1', 'Personal', '2025-01-01', '2025-01-01');
+    const row = sqlite.prepare('SELECT visibility FROM decks WHERE id = ?').get('deck-default') as Record<string, unknown>;
+    assert.equal(row.visibility, 'personal');
+    sqlite.close();
+  });
+
   it('imports legacy membership and relationships exactly once', () => {
     const directory = mkdtempSync(join(tmpdir(), 'kiwi-deck-migration-'));
     directories.push(directory);

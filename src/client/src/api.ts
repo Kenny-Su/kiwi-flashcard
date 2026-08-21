@@ -59,6 +59,14 @@ export interface ApiClient {
   recordReview(input: { cardId: string; isCorrect: boolean; sessionId?: string }): Promise<void>;
   getStats(): Promise<Stats>;
   listDecks(): Promise<Deck[]>;
+  listClassDecks(): Promise<Deck[]>;
+  createClassDeck(input: { name: string; description?: string }): Promise<Deck>;
+  updateClassDeck(id: string, input: { name?: string; description?: string | null }): Promise<Deck>;
+  deleteClassDeck(id: string): Promise<void>;
+  createClassCard(input: { deckId: string; question: string; answer: string; concepts?: string[]; tags?: string[] }): Promise<Card>;
+  updateClassCard(id: string, input: { question: string; answer: string; concepts?: string[]; tags?: string[] }): Promise<Card>;
+  deleteClassCard(id: string): Promise<void>;
+  reorderClassDeckCards(deckId: string, cardIds: string[]): Promise<Card[]>;
   createDeck(input: { name: string; description?: string }): Promise<Deck>;
   updateDeck(id: string, input: { name?: string; description?: string | null }): Promise<Deck>;
   deleteDeck(id: string): Promise<void>;
@@ -181,6 +189,14 @@ export function createApiClient(
     recordReview: (input) => request('/api/reviews', { method: 'POST', body: JSON.stringify(input) }),
     getStats: () => request(`/api/stats?${classQuery}`),
     listDecks: () => request(`/api/decks?${classQuery}`),
+    listClassDecks: () => request(`/api/class-decks?${classQuery}`),
+    createClassDeck: (input) => request('/api/class-decks', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
+    updateClassDeck: (id, input) => request(`/api/class-decks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+    deleteClassDeck: async (id) => { await request(`/api/class-decks/${id}`, { method: 'DELETE' }); },
+    createClassCard: (input) => request('/api/class-cards', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
+    updateClassCard: (id, input) => request(`/api/class-cards/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+    deleteClassCard: async (id) => { await request(`/api/class-cards/${id}`, { method: 'DELETE' }); },
+    reorderClassDeckCards: (deckId, cardIds) => request(`/api/class-decks/${deckId}/cards/order`, { method: 'PUT', body: JSON.stringify({ cardIds }) }),
     createDeck: (input) => request('/api/decks', { method: 'POST', body: JSON.stringify({ ...input, classId }) }),
     updateDeck: (id, input) => request(`/api/decks/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
     deleteDeck: async (id) => { await request(`/api/decks/${id}`, { method: 'DELETE' }); },

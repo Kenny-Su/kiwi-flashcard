@@ -46,6 +46,10 @@ export interface CreateDeckDto {
   classId?: string;
 }
 
+export interface CreateClassCardDto extends CreateCardDto {
+  deckId: string;
+}
+
 export interface UpdateDeckDto {
   name?: string;
   description?: string | null;
@@ -159,6 +163,12 @@ export function parseCreateCard(value: unknown): CreateCardDto {
     difficultyRating: optionalInteger(input, 'difficultyRating', 1, 5),
     confidence: optionalInteger(input, 'confidence', 1, 5),
   };
+}
+
+export function parseCreateClassCard(value: unknown): CreateClassCardDto {
+  const card = parseCreateCard(value);
+  if (!card.deckId) throw new ValidationError('deckId must be a non-empty string');
+  return card as CreateClassCardDto;
 }
 
 export function parseCreateCards(value: unknown): CreateCardsDto {

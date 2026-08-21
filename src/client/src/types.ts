@@ -18,6 +18,7 @@ export interface Card {
   tags: string[];
   classId: string;
   deckIds: string[];
+  visibility?: 'personal' | 'class';
   pdfId?: string | null;
   pageNumber?: number | null;
   materialType?: string | null;
@@ -34,6 +35,7 @@ export interface Deck {
   description?: string | null;
   classId: string;
   cards: Card[];
+  visibility?: 'personal' | 'class';
   lastStudiedAt?: string | null;
   createdAt: string;
   updatedAt: string;

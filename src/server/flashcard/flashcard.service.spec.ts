@@ -5,6 +5,7 @@ import { SqliteService } from '../database/sqlite.service';
 import { FlashcardService } from './flashcard.service';
 import { KiwiMcpService } from './kiwi-mcp.service';
 import { KiwiMaterialsService } from './kiwi-materials.service';
+import { KiwiPermissionsService } from '../auth/kiwi-permissions.service';
 
 describe('FlashcardService with SQLite', () => {
   let sqlite: SqliteService;
@@ -39,6 +40,7 @@ describe('FlashcardService with SQLite', () => {
       };
     },
   } as unknown as KiwiMaterialsService;
+  const permissions = { requireClassManager: async () => undefined } as unknown as KiwiPermissionsService;
 
   beforeEach(() => {
     generatedCards = [];
@@ -46,7 +48,7 @@ describe('FlashcardService with SQLite', () => {
     generateCalls = [];
     materialsCalls = [];
     sqlite = new SqliteService(':memory:');
-    service = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials);
+    service = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials, permissions);
   });
 
   afterEach(() => sqlite.close());
@@ -285,5 +287,33 @@ describe('FlashcardService with SQLite', () => {
     const suggestions = await service.suggestCardLinks(context, { deckId: deck.id });
 
     assert.deepEqual(suggestions, [suggestedLinks[0]]);
+  });
+
+  it('publishes class decks for every user while keeping personal cards private', async () => {
+    const student = { ...context, userId: 'student-2' };
+    const deck = await service.createClassDeck(context, { name: 'Official Midterm Review' });
+    const card = await service.createClassCard(context, {
+      deckId: deck.id, question: 'What is a stack?', answer: 'A last-in, first-out collection', concepts: ['stack'],
+    });
+    await service.createCard(context, { question: 'Instructor note?', answer: 'Private' });
+
+    const visible = await service.listClassDecks(student);
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0].cards[0].id, card.id);
+    assert.deepEqual(await service.listCards(student), []);
+    assert.equal((await service.listCards(context)).length, 1);
+    assert.equal((await service.listDecks(context)).length, 0);
+    await service.recordReview(student, { cardId: card.id, isCorrect: true });
+    const session = await service.startSession(student, { deckId: deck.id });
+    assert.equal(session.userId, student.userId);
+    assert.equal((await service.listClassDecks(context))[0].cards[0].reviewCount, 1);
+  });
+
+  it('rejects class-deck writes when Kiwi does not confirm an instructor role', async () => {
+    const deniedPermissions = {
+      requireClassManager: async () => { throw new Error('Only class instructors and administrators can manage class decks'); },
+    } as unknown as KiwiPermissionsService;
+    const denied = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials, deniedPermissions);
+    await assert.rejects(() => denied.createClassDeck(context, { name: 'Unauthorized' }), /Only class instructors/);
   });
 });

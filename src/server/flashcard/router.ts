@@ -4,6 +4,7 @@ import type { AppRequestContext } from '../auth/app-token.types';
 import { getAppContext } from '../auth/request-context';
 import {
   parseCreateCard,
+  parseCreateClassCard,
   parseCreateCardLinks,
   parseCreateCards,
   parseCreateDeck,
@@ -138,6 +139,38 @@ export function createFlashcardRouter(
 
   router.get('/decks', asyncHandler(async (request, response) => {
     response.json(await flashcards.listDecks(getAppContext(request)));
+  }));
+
+  router.get('/class-decks', asyncHandler(async (request, response) => {
+    response.json(await flashcards.listClassDecks(getAppContext(request)));
+  }));
+
+  router.post('/class-decks', asyncHandler(async (request, response) => {
+    response.status(201).json(await flashcards.createClassDeck(getAppContext(request), parseCreateDeck(request.body)));
+  }));
+
+  router.patch('/class-decks/:deckId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.updateClassDeck(getAppContext(request), request.params.deckId, parseUpdateDeck(request.body)));
+  }));
+
+  router.delete('/class-decks/:deckId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.deleteClassDeck(getAppContext(request), request.params.deckId));
+  }));
+
+  router.post('/class-cards', asyncHandler(async (request, response) => {
+    response.status(201).json(await flashcards.createClassCard(getAppContext(request), parseCreateClassCard(request.body)));
+  }));
+
+  router.patch('/class-cards/:cardId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.updateClassCard(getAppContext(request), request.params.cardId, parseUpdateCard(request.body)));
+  }));
+
+  router.delete('/class-cards/:cardId', asyncHandler(async (request, response) => {
+    response.json(await flashcards.deleteClassCard(getAppContext(request), request.params.cardId));
+  }));
+
+  router.put('/class-decks/:deckId/cards/order', asyncHandler(async (request, response) => {
+    response.json(await flashcards.reorderClassDeckCards(getAppContext(request), request.params.deckId, parseReorderDeckCards(request.body)));
   }));
 
   router.post('/decks', asyncHandler(async (request, response) => {

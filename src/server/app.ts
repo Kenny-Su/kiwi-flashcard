@@ -3,6 +3,7 @@ import cors from 'cors';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppTokenVerifier } from './auth/app-token.guard';
+import { KiwiPermissionsService } from './auth/kiwi-permissions.service';
 import { SqliteService } from './database/sqlite.service';
 import { FlashcardService } from './flashcard/flashcard.service';
 import { KiwiMcpService } from './flashcard/kiwi-mcp.service';
@@ -15,6 +16,7 @@ export interface AppDependencies {
   kiwiMcp?: KiwiMcpService;
   kiwiMaterials?: KiwiMaterialsService;
   tokenVerifier?: AppTokenVerifier;
+  permissions?: KiwiPermissionsService;
   clientDir?: string;
 }
 
@@ -24,7 +26,8 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   const kiwiMcp = dependencies.kiwiMcp || new KiwiMcpService();
   const kiwiMaterials = dependencies.kiwiMaterials || new KiwiMaterialsService();
   const tokenVerifier = dependencies.tokenVerifier || new AppTokenVerifier();
-  const flashcards = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials);
+  const permissions = dependencies.permissions || new KiwiPermissionsService();
+  const flashcards = new FlashcardService(sqlite, kiwiMcp, kiwiMaterials, permissions);
   const origins = (process.env.CORS_ORIGINS || '*')
     .split(',')
     .map((origin) => origin.trim())
